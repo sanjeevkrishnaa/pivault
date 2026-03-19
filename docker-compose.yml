@@ -1,0 +1,26 @@
+version: "3.9"
+
+services:
+  pivault:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pivault
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - nas_storage:/data/storage
+    environment:
+      - PORT=8080
+      - STORAGE_ROOT=/data/storage
+      - NODE_ENV=production
+    networks:
+      - pivault_net
+
+volumes:
+  nas_storage:
+
+networks:
+  pivault_net:
+    driver: bridge

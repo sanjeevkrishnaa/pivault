@@ -1,0 +1,184 @@
+# PiVault NAS — Setup Guide
+
+## Project Structure
+
+```
+pivault/
+├── server.js          ← Express backend (all API routes)
+├── package.json       ← Dependencies
+├── storage/           ← Auto-created: all your NAS files live here
+└── public/
+    └── index.html     ← The dashboard UI
+```
+
+---
+
+## Windows Setup (Development)
+
+### 1. Install Node.js
+Download from https://nodejs.org (LTS version)
+Verify: open PowerShell and run:
+```
+node --version
+npm --version
+```
+
+### 2. Install dependencies
+```powershell
+cd C:\path\to\pivault
+npm install
+```
+
+### 3. Start the server
+```powershell
+node server.js
+```
+
+You'll see:
+```
+╔══════════════════════════════════════╗
+║       PiVault NAS Server v1.0        ║
+╠══════════════════════════════════════╣
+║  Local:   http://localhost:8080      ║
+║  Network: http://192.168.x.x:8080   ║
+╚══════════════════════════════════════╝
+```
+
+### 4. Open the dashboard
+Go to http://localhost:8080 in your browser.
+
+Default credentials:
+- admin / admin123  (full access)
+- john  / john123   (read + write)
+- sara  / sara123   (read only)
+
+### 5. Change the storage folder (optional)
+By default files are stored in ./storage/ next to server.js.
+To change it, set an environment variable before starting:
+```powershell
+$env:STORAGE_ROOT = "D:\MyNASFiles"
+node server.js
+```
+
+---
+
+## Raspberry Pi Deployment
+
+### 1. Copy the project to the Pi
+From your Windows machine:
+```powershell
+scp -r C:\path\to\pivault pi@192.168.1.100:~/pivault
+```
+Or use a USB drive.
+
+### 2. SSH into the Pi
+```bash
+ssh pi@192.168.1.100
+```
+
+### 3. Install Node.js on the Pi
+```bash
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs
+```
+
+### 4. Mount your external drive (if using one)
+```bash
+sudo mkdir -p /media/pi/NAS
+sudo mount /dev/sda1 /media/pi/NAS
+```
+
+### 5. Start the server
+```bash
+cd ~/pivault
+npm install
+STORAGE_ROOT=/media/pi/NAS node server.js
+```
+
+### 6. Auto-start on boot with systemd
+Create a service file:
+```bash
+sudo nano /etc/systemd/system/pivault.service
+```
+
+Paste this:
+```ini
+[Unit]
+Description=PiVault NAS Server
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/node /home/pi/pivault/server.js
+WorkingDirectory=/home/pi/pivault
+Environment=STORAGE_ROOT=/media/pi/NAS
+Environment=PORT=8080
+Restart=always
+User=pi
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start:
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable pivault
+sudo systemctl start pivault
+sudo systemctl status pivault
+```
+
+Now PiVault starts automatically on every boot.
+Access it from any device on your WiFi at: http://192.168.1.100:8080
+
+---
+
+## API Reference
+
+| Method | Endpoint              | Description                          |
+|--------|-----------------------|--------------------------------------|
+| POST   | /api/login            | Authenticate, returns session token  |
+| POST   | /api/logout           | Invalidate session                   |
+| GET    | /api/files?path=      | List directory contents              |
+| POST   | /api/upload?path=     | Upload files (multipart/form-data)   |
+| GET    | /api/download?path=   | Download a file                      |
+| POST   | /api/folder           | Create a new folder                  |
+| DELETE | /api/delete           | Delete a file or folder (admin only) |
+| POST   | /api/rename           | Rename a file or folder              |
+| GET    | /api/stats            | Disk, CPU, RAM, network info         |
+| GET    | /api/activity         | Last 50 file operations              |
+| GET    | /api/health           | Server health check                  |
+
+All endpoints except /api/login and /api/health require the header:
+`x-session-token: <token from login>`
+
+---
+
+## Changing Passwords / Adding Users
+
+Edit the USERS object at the top of server.js:
+```js
+const USERS = {
+  admin: { password: 'your-strong-password', role: 'admin' },
+  alice: { password: 'alice-pass', role: 'user' },
+  bob:   { password: 'bob-pass',   role: 'readonly' },
+};
+```
+
+Roles:
+- admin     → full access (upload, download, delete, rename, create folders)
+- user      → upload, download, rename, create folders (no delete)
+- readonly  → download only
+
+---
+
+## Troubleshooting
+
+**"Cannot reach server"** — make sure node server.js is running and check firewall:
+```powershell
+# Windows: allow port 8080
+netsh advfirewall firewall add rule name="PiVault" protocol=TCP dir=in localport=8080 action=allow
+```
+
+**Upload fails** — check that the storage folder exists and is writable.
+
+**Can't access from other devices** — use the Network URL shown at startup (not localhost).

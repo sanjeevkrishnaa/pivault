@@ -1,0 +1,1962 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PiVault — NAS Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0d0f14;
+    --bg2: #12151c;
+    --bg3: #181c26;
+    --bg4: #1e2330;
+    --border: #252d3e;
+    --border2: #2e3850;
+    --text: #e2e8f0;
+    --text2: #8898b0;
+    --text3: #4a5568;
+    --teal: #00d4aa;
+    --teal-dim: #00a87f;
+    --teal-bg: #00d4aa18;
+    --amber: #ffb547;
+    --amber-bg: #ffb54718;
+    --red: #ff5f6d;
+    --red-bg: #ff5f6d18;
+    --blue: #4facfe;
+    --blue-bg: #4facfe18;
+    --purple: #a78bfa;
+    --radius: 8px;
+    --radius-lg: 12px;
+  }
+
+  body {
+    font-family: 'IBM Plex Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ─── SCREEN MANAGER ─────────────────────────────── */
+  .screen { display: none; }
+  .screen.active { display: flex; }
+
+  /* ─── LOGIN ──────────────────────────────────────── */
+  #login-screen {
+    min-height: 100vh;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    background: var(--bg);
+  }
+
+  .login-grid-bg {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 48px 48px;
+    opacity: 0.35;
+  }
+
+  .login-glow {
+    position: absolute;
+    width: 600px; height: 600px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #00d4aa0e 0%, transparent 70%);
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+
+  .login-card {
+    position: relative;
+    z-index: 1;
+    width: 420px;
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-lg);
+    padding: 48px 40px;
+    animation: fadeUp 0.5s ease;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .login-logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+
+  .logo-icon {
+    width: 44px; height: 44px;
+    background: var(--teal-bg);
+    border: 1px solid var(--teal-dim);
+    border-radius: var(--radius);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--teal);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 18px; font-weight: 500;
+  }
+
+  .login-title { font-size: 22px; font-weight: 600; letter-spacing: -0.3px; }
+  .login-sub { font-size: 12px; color: var(--text2); font-family: 'IBM Plex Mono', monospace; margin-top: 2px; }
+
+  .login-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text2);
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    margin-top: 20px;
+    display: block;
+  }
+
+  .login-input {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .login-input:focus { border-color: var(--teal-dim); }
+
+  .login-options {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 14px; font-size: 13px; color: var(--text2);
+  }
+
+  .login-options label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  .login-options a { color: var(--teal); text-decoration: none; font-size: 12px; }
+
+  .login-btn {
+    width: 100%;
+    margin-top: 28px;
+    padding: 13px;
+    background: var(--teal);
+    border: none;
+    border-radius: var(--radius);
+    color: #0d1117;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 14px; font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 0.3px;
+    transition: background 0.2s, transform 0.1s;
+  }
+
+  .login-btn:hover { background: #00e8bc; }
+  .login-btn:active { transform: scale(0.98); }
+
+  .login-footer {
+    text-align: center;
+    margin-top: 24px;
+    font-size: 12px;
+    color: var(--text3);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  .login-footer span { color: var(--teal); }
+
+  /* ─── MAIN APP ───────────────────────────────────── */
+  #app-screen {
+    flex-direction: row;
+    min-height: 100vh;
+  }
+
+  /* ─── SIDEBAR ────────────────────────────────────── */
+  .sidebar {
+    width: 240px;
+    min-height: 100vh;
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    padding: 0 0 20px;
+  }
+
+  .sidebar-header {
+    padding: 20px 20px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-logo { display: flex; align-items: center; gap: 10px; }
+  .sidebar-logo .logo-icon { width: 34px; height: 34px; font-size: 14px; }
+  .sidebar-brand { font-size: 16px; font-weight: 600; }
+  .sidebar-version { font-size: 10px; color: var(--text3); font-family: 'IBM Plex Mono', monospace; }
+
+  .sidebar-status {
+    margin: 12px 16px;
+    padding: 10px 12px;
+    background: var(--teal-bg);
+    border: 1px solid #00d4aa30;
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--teal);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  .status-dot {
+    width: 7px; height: 7px;
+    background: var(--teal);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .nav-section {
+    padding: 16px 16px 4px;
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text3);
+    font-weight: 500;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 16px;
+    font-size: 13px;
+    color: var(--text2);
+    cursor: pointer;
+    border-left: 2px solid transparent;
+    transition: all 0.15s;
+    user-select: none;
+  }
+
+  .nav-item:hover { background: var(--bg3); color: var(--text); }
+
+  .nav-item.active {
+    color: var(--teal);
+    background: var(--teal-bg);
+    border-left-color: var(--teal);
+  }
+
+  .nav-icon {
+    width: 18px; height: 18px;
+    flex-shrink: 0;
+    opacity: 0.7;
+  }
+
+  .nav-item.active .nav-icon { opacity: 1; }
+
+  .nav-badge {
+    margin-left: auto;
+    background: var(--teal-bg);
+    color: var(--teal);
+    font-size: 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    padding: 2px 7px;
+    border-radius: 20px;
+  }
+
+  .sidebar-storage {
+    margin: auto 16px 0;
+    padding: 14px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+
+  .storage-label {
+    font-size: 11px; color: var(--text2); margin-bottom: 8px;
+    display: flex; justify-content: space-between;
+  }
+
+  .storage-bar {
+    height: 5px; background: var(--bg4);
+    border-radius: 3px; overflow: hidden; margin-bottom: 6px;
+  }
+
+  .storage-fill {
+    height: 100%; width: 68%;
+    background: linear-gradient(90deg, var(--teal), var(--blue));
+    border-radius: 3px;
+  }
+
+  .storage-nums { font-size: 11px; color: var(--text3); font-family: 'IBM Plex Mono', monospace; }
+
+  .sidebar-user {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 16px 0;
+    border-top: 1px solid var(--border);
+    margin-top: 14px;
+    cursor: pointer;
+  }
+
+  .user-avatar {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: var(--purple);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 600; color: white;
+    flex-shrink: 0;
+  }
+
+  .user-name { font-size: 13px; font-weight: 500; }
+  .user-role { font-size: 11px; color: var(--text3); }
+  .user-logout { margin-left: auto; font-size: 11px; color: var(--text3); cursor: pointer; }
+  .user-logout:hover { color: var(--red); }
+
+  /* ─── MAIN CONTENT ───────────────────────────────── */
+  .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .topbar {
+    height: 56px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+
+  .topbar-title { font-size: 15px; font-weight: 600; }
+  .topbar-path {
+    font-size: 12px; color: var(--text3);
+    font-family: 'IBM Plex Mono', monospace;
+    margin-left: 4px;
+  }
+
+  .topbar-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+
+  .btn-sm {
+    padding: 7px 14px;
+    border-radius: var(--radius);
+    font-size: 12px; font-weight: 500;
+    cursor: pointer; border: none;
+    transition: all 0.15s;
+    font-family: 'IBM Plex Sans', sans-serif;
+  }
+
+  .btn-teal { background: var(--teal); color: #0d1117; }
+  .btn-teal:hover { background: #00e8bc; }
+
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--border2);
+    color: var(--text2);
+  }
+
+  .btn-ghost:hover { background: var(--bg3); color: var(--text); }
+
+  .search-bar {
+    display: flex; align-items: center;
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 6px 12px; gap: 8px;
+    width: 220px;
+  }
+
+  .search-bar input {
+    background: none; border: none; outline: none;
+    color: var(--text); font-size: 13px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    width: 100%;
+  }
+
+  .search-bar input::placeholder { color: var(--text3); }
+
+  .content-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+  }
+
+  /* ─── PAGE PANELS ────────────────────────────────── */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ─── DASHBOARD ──────────────────────────────────── */
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .stat-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 18px 20px;
+  }
+
+  .stat-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px; }
+  .stat-value { font-size: 26px; font-weight: 600; font-family: 'IBM Plex Mono', monospace; }
+  .stat-sub { font-size: 11px; color: var(--text2); margin-top: 4px; }
+  .stat-teal .stat-value { color: var(--teal); }
+  .stat-amber .stat-value { color: var(--amber); }
+  .stat-blue .stat-value { color: var(--blue); }
+  .stat-red .stat-value { color: var(--red); }
+
+  .dash-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+
+  .card-head {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 13px; font-weight: 500;
+  }
+
+  .card-head-tag {
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 20px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  .tag-teal { background: var(--teal-bg); color: var(--teal); }
+  .tag-amber { background: var(--amber-bg); color: var(--amber); }
+  .tag-red { background: var(--red-bg); color: var(--red); }
+  .tag-blue { background: var(--blue-bg); color: var(--blue); }
+
+  .card-body { padding: 16px 18px; }
+
+  .activity-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+
+  .activity-item:last-child { border-bottom: none; }
+
+  .act-icon {
+    width: 32px; height: 32px;
+    border-radius: var(--radius);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; flex-shrink: 0;
+  }
+
+  .act-name { flex: 1; color: var(--text); }
+  .act-meta { font-size: 11px; color: var(--text3); font-family: 'IBM Plex Mono', monospace; }
+  .act-time { font-size: 11px; color: var(--text3); }
+
+  .mini-usage {
+    display: flex; flex-direction: column; gap: 10px;
+  }
+
+  .usage-row {
+    display: flex; align-items: center; gap: 12px; font-size: 12px;
+  }
+
+  .usage-name { width: 70px; color: var(--text2); }
+  .usage-bar { flex: 1; height: 5px; background: var(--bg4); border-radius: 3px; overflow: hidden; }
+  .usage-fill { height: 100%; border-radius: 3px; }
+  .usage-val { width: 36px; text-align: right; color: var(--text3); font-family: 'IBM Plex Mono', monospace; }
+
+  .led-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  }
+
+  .led-item {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 12px;
+    display: flex; align-items: center; gap: 10px;
+    font-size: 12px;
+  }
+
+  .led {
+    width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+  }
+
+  .led-green { background: var(--teal); box-shadow: 0 0 6px var(--teal); animation: pulse 2s infinite; }
+  .led-amber { background: var(--amber); box-shadow: 0 0 6px var(--amber); animation: pulse 2.5s infinite; }
+  .led-off { background: var(--text3); }
+
+  /* ─── FILE EXPLORER ──────────────────────────────── */
+  .explorer-toolbar {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .breadcrumb {
+    display: flex; align-items: center; gap: 4px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--text2);
+    flex: 1;
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 8px 12px;
+  }
+
+  .breadcrumb span { color: var(--teal); cursor: pointer; }
+  .breadcrumb span:hover { text-decoration: underline; }
+  .breadcrumb .sep { color: var(--text3); }
+
+  .file-grid-header {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr 80px;
+    padding: 8px 14px;
+    font-size: 11px; color: var(--text3);
+    text-transform: uppercase; letter-spacing: 0.7px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .file-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr 80px;
+    padding: 10px 14px;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.1s;
+    font-size: 13px;
+  }
+
+  .file-row:hover { background: var(--bg3); }
+  .file-row:last-child { border-bottom: none; }
+
+  .file-name {
+    display: flex; align-items: center; gap: 10px;
+  }
+
+  .file-icon { font-size: 16px; width: 22px; text-align: center; }
+
+  .file-type-tag {
+    font-size: 10px; padding: 2px 6px;
+    border-radius: 4px; font-family: 'IBM Plex Mono', monospace;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+
+  .type-folder { background: var(--blue-bg); color: var(--blue); }
+  .type-img { background: var(--purple); color: white; opacity: 0.8; }
+  .type-doc { background: #4facfe22; color: var(--blue); }
+  .type-vid { background: var(--red-bg); color: var(--red); }
+  .type-zip { background: var(--amber-bg); color: var(--amber); }
+  .type-code { background: var(--teal-bg); color: var(--teal); }
+
+  .file-size { color: var(--text2); font-family: 'IBM Plex Mono', monospace; }
+  .file-date { color: var(--text3); }
+  .file-perms { color: var(--text3); font-family: 'IBM Plex Mono', monospace; font-size: 11px; }
+
+  .file-actions {
+    display: flex; gap: 4px; justify-content: flex-end; opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  .file-row:hover .file-actions { opacity: 1; }
+
+  .icon-btn {
+    width: 26px; height: 26px;
+    border-radius: 5px;
+    border: 1px solid var(--border2);
+    background: var(--bg3);
+    color: var(--text2);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 12px;
+    transition: all 0.1s;
+  }
+
+  .icon-btn:hover { background: var(--bg4); color: var(--text); }
+
+  /* ─── UPLOAD ─────────────────────────────────────── */
+  .upload-zone {
+    border: 2px dashed var(--border2);
+    border-radius: var(--radius-lg);
+    padding: 52px 24px;
+    text-align: center;
+    transition: all 0.2s;
+    cursor: pointer;
+    margin-bottom: 24px;
+    background: var(--bg2);
+  }
+
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--teal);
+    background: var(--teal-bg);
+  }
+
+  .upload-icon { font-size: 36px; margin-bottom: 14px; }
+  .upload-title { font-size: 16px; font-weight: 500; margin-bottom: 6px; }
+  .upload-sub { font-size: 13px; color: var(--text3); margin-bottom: 16px; }
+
+  .upload-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .upload-item {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px 16px;
+    display: flex; align-items: center; gap: 12px;
+  }
+
+  .up-icon { font-size: 20px; }
+  .up-info { flex: 1; }
+  .up-name { font-size: 13px; font-weight: 500; margin-bottom: 4px; }
+  .up-size { font-size: 11px; color: var(--text3); font-family: 'IBM Plex Mono', monospace; }
+
+  .up-bar { height: 4px; background: var(--bg4); border-radius: 2px; margin-top: 8px; overflow: hidden; }
+  .up-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
+
+  .up-status { font-size: 11px; font-family: 'IBM Plex Mono', monospace; }
+
+  /* ─── DOWNLOADS ──────────────────────────────────── */
+  .dl-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .dl-item {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px 18px;
+    display: flex; align-items: center; gap: 14px;
+  }
+
+  .dl-thumb {
+    width: 40px; height: 40px;
+    background: var(--bg4);
+    border-radius: var(--radius);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+  }
+
+  .dl-info { flex: 1; }
+  .dl-name { font-size: 13px; font-weight: 500; margin-bottom: 2px; }
+  .dl-meta { font-size: 11px; color: var(--text3); font-family: 'IBM Plex Mono', monospace; }
+
+  .dl-actions { display: flex; gap: 8px; }
+
+  /* ─── SETTINGS ───────────────────────────────────── */
+  .settings-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  }
+
+  .settings-section {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); overflow: hidden;
+  }
+
+  .settings-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 13px 18px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+
+  .settings-row:last-child { border-bottom: none; }
+  .settings-key { color: var(--text2); }
+  .settings-val { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--text); }
+
+  .toggle {
+    width: 38px; height: 20px;
+    background: var(--bg4); border-radius: 10px;
+    cursor: pointer; position: relative;
+    transition: background 0.2s;
+    border: 1px solid var(--border2);
+  }
+
+  .toggle.on { background: var(--teal); }
+
+  .toggle::after {
+    content: '';
+    position: absolute; top: 2px; left: 2px;
+    width: 14px; height: 14px;
+    background: white; border-radius: 50%;
+    transition: left 0.2s;
+  }
+
+  .toggle.on::after { left: 20px; }
+
+  /* ─── SCROLLBAR ──────────────────────────────────── */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+  .chart-bar-row {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 8px; font-size: 12px;
+  }
+
+  .chart-day { width: 26px; color: var(--text3); font-family: 'IBM Plex Mono', monospace; }
+  .chart-bar-wrap { flex: 1; height: 20px; background: var(--bg4); border-radius: 3px; overflow: hidden; }
+  .chart-bar-fill { height: 100%; border-radius: 3px; }
+  .chart-num { width: 40px; text-align: right; color: var(--text2); font-family: 'IBM Plex Mono', monospace; }
+
+  .notification-dot {
+    width: 6px; height: 6px;
+    background: var(--red); border-radius: 50%;
+    position: absolute; top: 8px; right: 8px;
+  }
+
+  .empty-state {
+    text-align: center; padding: 40px;
+    color: var(--text3); font-size: 13px;
+  }
+
+  .empty-icon { font-size: 32px; margin-bottom: 10px; }
+
+  .context-menu {
+    position: fixed; z-index: 1000;
+    background: var(--bg2); border: 1px solid var(--border2);
+    border-radius: var(--radius); padding: 5px;
+    min-width: 150px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    display: none;
+  }
+
+  .ctx-item {
+    padding: 8px 12px; font-size: 12px; cursor: pointer;
+    border-radius: 5px; display: flex; gap: 10px; align-items: center;
+    color: var(--text2); transition: all 0.1s;
+  }
+
+  .ctx-item:hover { background: var(--bg3); color: var(--text); }
+  .ctx-item.danger:hover { background: var(--red-bg); color: var(--red); }
+
+  /* ─── MEDIA PREVIEW MODAL ────────────────────────── */
+  .preview-overlay {
+    position: fixed; inset: 0; z-index: 2000;
+    background: rgba(0,0,0,0.88);
+    display: flex; align-items: center; justify-content: center;
+    animation: fadeIn2 0.2s ease;
+  }
+  @keyframes fadeIn2 { from { opacity:0; } to { opacity:1; } }
+  .preview-box {
+    position: relative; max-width: 92vw; max-height: 90vh;
+    background: var(--bg2); border: 1px solid var(--border2);
+    border-radius: var(--radius-lg); overflow: hidden;
+    display: flex; flex-direction: column;
+    animation: scaleIn 0.2s ease;
+  }
+  @keyframes scaleIn { from { transform:scale(0.95); opacity:0; } to { transform:scale(1); opacity:1; } }
+  .preview-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .preview-title { flex:1; font-size:13px; font-weight:500; font-family:'IBM Plex Mono',monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .preview-meta  { font-size:11px; color:var(--text3); font-family:'IBM Plex Mono',monospace; flex-shrink:0; }
+  .preview-close {
+    width:28px; height:28px; border-radius:6px; border:1px solid var(--border2);
+    background:var(--bg3); color:var(--text2); display:flex; align-items:center;
+    justify-content:center; cursor:pointer; font-size:16px; flex-shrink:0; transition:all 0.15s;
+  }
+  .preview-close:hover { background:var(--red-bg); color:var(--red); border-color:var(--red); }
+  .preview-body {
+    flex:1; overflow:auto; display:flex; align-items:center; justify-content:center;
+    min-height:200px; background:#0a0c10; position:relative;
+  }
+  .preview-body img { max-width:88vw; max-height:78vh; object-fit:contain; display:block; }
+  .preview-body video { max-width:88vw; max-height:78vh; outline:none; }
+  .preview-body audio { width:480px; max-width:80vw; margin:40px; }
+  .preview-body .text-preview {
+    width:700px; max-width:88vw; max-height:78vh; overflow:auto; padding:24px;
+    font-family:'IBM Plex Mono',monospace; font-size:13px; line-height:1.7;
+    color:var(--text); white-space:pre-wrap; word-break:break-all; background:var(--bg2);
+  }
+  .preview-footer {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 16px; border-top:1px solid var(--border); flex-shrink:0;
+  }
+  .preview-loading { display:flex; flex-direction:column; align-items:center; gap:14px; padding:60px; color:var(--text3); font-size:13px; }
+  .spin { width:28px; height:28px; border:2px solid var(--border2); border-top-color:var(--teal); border-radius:50%; animation:spin 0.8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .audio-card { display:flex; flex-direction:column; align-items:center; padding:40px 40px 28px; gap:20px; width:520px; max-width:88vw; }
+  .audio-art { width:120px; height:120px; border-radius:12px; background:var(--teal-bg); border:1px solid var(--teal-dim); display:flex; align-items:center; justify-content:center; font-size:48px; }
+  .audio-name { font-size:15px; font-weight:500; text-align:center; }
+  .audio-sub  { font-size:12px; color:var(--text3); font-family:'IBM Plex Mono',monospace; }
+
+</style>
+</head>
+<body>
+
+<!-- ════════════════════ LOGIN ════════════════════ -->
+<div id="login-screen" class="screen active">
+  <div class="login-grid-bg"></div>
+  <div class="login-glow"></div>
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="logo-icon">Pi</div>
+      <div>
+        <div class="login-title">PiVault NAS</div>
+        <div class="login-sub">192.168.1.100 — secure access</div>
+      </div>
+    </div>
+    <label class="login-label">Username</label>
+    <input class="login-input" id="username" type="text" placeholder="admin" value="admin" />
+    <label class="login-label">Password</label>
+    <input class="login-input" id="password" type="password" placeholder="••••••••" value="password" />
+    <div class="login-options">
+      <label><input type="checkbox" checked> Remember me</label>
+      <a href="#">Forgot password?</a>
+    </div>
+    <button class="login-btn" onclick="doLogin()">Sign in to PiVault</button>
+    <div class="login-footer">
+      Raspberry Pi 4 Model B · <span>Online</span> · CS321 Projects 2026
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ APP ════════════════════ -->
+<div id="app-screen" class="screen">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <div class="logo-icon">Pi</div>
+        <div>
+          <div class="sidebar-brand">PiVault</div>
+          <div class="sidebar-version">v2.4.1 · RPi4</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar-status">
+      <div class="status-dot"></div>
+      System Online
+    </div>
+
+    <div class="nav-section">Main</div>
+    <div class="nav-item active" onclick="showPage('dashboard', this)">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+        <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+      </svg>
+      Dashboard
+      <span class="nav-badge">Live</span>
+    </div>
+    <div class="nav-item" onclick="showPage('explorer', this)">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/>
+      </svg>
+      File Explorer
+    </div>
+    <div class="nav-item" onclick="showPage('upload', this)">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>
+      Upload
+    </div>
+    <div class="nav-item" onclick="showPage('downloads', this)">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      Downloads
+      <span class="nav-badge">3</span>
+    </div>
+
+    <div class="nav-section">System</div>
+    <div class="nav-item" onclick="showPage('monitoring', this)">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+      </svg>
+      Monitoring
+    </div>
+    <div class="nav-item" onclick="showPage('users', this)">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
+        <path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
+      </svg>
+      Users
+    </div>
+    <div class="nav-item" onclick="showPage('settings', this)">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+      </svg>
+      Settings
+    </div>
+
+    <div class="sidebar-storage">
+      <div class="storage-label">
+        <span>Storage Used</span>
+        <span>68%</span>
+      </div>
+      <div class="storage-bar"><div class="storage-fill"></div></div>
+      <div class="storage-nums">217.6 GB / 320 GB</div>
+    </div>
+
+    <div class="sidebar-user">
+      <div class="user-avatar">AD</div>
+      <div>
+        <div class="user-name">Admin</div>
+        <div class="user-role">root · administrator</div>
+      </div>
+      <div class="user-logout" onclick="doLogout()">⏻</div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-title" id="page-title">Dashboard</div>
+      <div class="topbar-path" id="page-path">/ overview</div>
+      <div class="topbar-actions">
+        <div class="search-bar">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4a5568" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+          </svg>
+          <input type="text" placeholder="Search files..." />
+        </div>
+        <button class="btn-sm btn-ghost" onclick="showPage('upload', document.querySelector('.nav-item:nth-child(4))'))">↑ Upload</button>
+        <button class="btn-sm btn-teal" id="new-folder-btn" onclick="alert('New folder created!')">+ New Folder</button>
+      </div>
+    </div>
+
+    <div class="content-area">
+
+      <!-- ── DASHBOARD PAGE ── -->
+      <div id="page-dashboard" class="page active">
+        <div class="stat-grid">
+          <div class="stat-card stat-teal">
+            <div class="stat-label">Total Storage</div>
+            <div class="stat-value">320<span style="font-size:14px">GB</span></div>
+            <div class="stat-sub">217.6 GB used · 102.4 GB free</div>
+          </div>
+          <div class="stat-card stat-blue">
+            <div class="stat-label">Files & Folders</div>
+            <div class="stat-value">4,821</div>
+            <div class="stat-sub">+14 added today</div>
+          </div>
+          <div class="stat-card stat-amber">
+            <div class="stat-label">Network Speed</div>
+            <div class="stat-value">94<span style="font-size:14px">MB/s</span></div>
+            <div class="stat-sub">↑ 12 MB/s · ↓ 82 MB/s</div>
+          </div>
+          <div class="stat-card stat-red">
+            <div class="stat-label">Active Users</div>
+            <div class="stat-value">3</div>
+            <div class="stat-sub">admin · john · sara</div>
+          </div>
+        </div>
+
+        <div class="dash-grid">
+          <!-- Recent Activity -->
+          <div class="card">
+            <div class="card-head">
+              Recent Activity
+              <span class="card-head-tag tag-teal">Live</span>
+            </div>
+            <div class="card-body" style="padding: 0;">
+              <div class="activity-item" style="padding: 10px 18px;">
+                <div class="act-icon" style="background: var(--blue-bg);">📄</div>
+                <div class="act-name">Project_Report_Final.pdf</div>
+                <div>
+                  <div class="act-meta">Uploaded · 2.4 MB</div>
+                  <div class="act-time">2 min ago</div>
+                </div>
+              </div>
+              <div class="activity-item" style="padding: 10px 18px;">
+                <div class="act-icon" style="background: var(--teal-bg);">📥</div>
+                <div class="act-name">dataset_v3.zip</div>
+                <div>
+                  <div class="act-meta">Downloaded · 856 MB</div>
+                  <div class="act-time">14 min ago</div>
+                </div>
+              </div>
+              <div class="activity-item" style="padding: 10px 18px;">
+                <div class="act-icon" style="background: #a78bfa22;">🎬</div>
+                <div class="act-name">lecture_recording_04.mp4</div>
+                <div>
+                  <div class="act-meta">Accessed · 1.1 GB</div>
+                  <div class="act-time">1 hr ago</div>
+                </div>
+              </div>
+              <div class="activity-item" style="padding: 10px 18px;">
+                <div class="act-icon" style="background: var(--amber-bg);">🗂️</div>
+                <div class="act-name">Backups / auto-2026-03-17</div>
+                <div>
+                  <div class="act-meta">Auto-backup · 4.2 GB</div>
+                  <div class="act-time">3 hr ago</div>
+                </div>
+              </div>
+              <div class="activity-item" style="padding: 10px 18px;">
+                <div class="act-icon" style="background: var(--red-bg);">🗑️</div>
+                <div class="act-name">old_slides_v1.pptx</div>
+                <div>
+                  <div class="act-meta">Deleted · 18 MB</div>
+                  <div class="act-time">5 hr ago</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Storage Breakdown -->
+          <div class="card">
+            <div class="card-head">
+              Storage by Type
+              <span class="card-head-tag tag-blue">320 GB total</span>
+            </div>
+            <div class="card-body">
+              <div class="mini-usage">
+                <div class="usage-row">
+                  <span class="usage-name">Videos</span>
+                  <div class="usage-bar"><div class="usage-fill" style="width:72%; background: #ff5f6d;"></div></div>
+                  <span class="usage-val">88GB</span>
+                </div>
+                <div class="usage-row">
+                  <span class="usage-name">Docs</span>
+                  <div class="usage-bar"><div class="usage-fill" style="width:38%; background: var(--blue);"></div></div>
+                  <span class="usage-val">47GB</span>
+                </div>
+                <div class="usage-row">
+                  <span class="usage-name">Images</span>
+                  <div class="usage-bar"><div class="usage-fill" style="width:28%; background: var(--purple);"></div></div>
+                  <span class="usage-val">34GB</span>
+                </div>
+                <div class="usage-row">
+                  <span class="usage-name">Backups</span>
+                  <div class="usage-bar"><div class="usage-fill" style="width:24%; background: var(--amber);"></div></div>
+                  <span class="usage-val">29GB</span>
+                </div>
+                <div class="usage-row">
+                  <span class="usage-name">Archives</span>
+                  <div class="usage-bar"><div class="usage-fill" style="width:16%; background: var(--teal);"></div></div>
+                  <span class="usage-val">19GB</span>
+                </div>
+                <div class="usage-row">
+                  <span class="usage-name">Other</span>
+                  <div class="usage-bar"><div class="usage-fill" style="width:1%; background: var(--text3);"></div></div>
+                  <span class="usage-val">1GB</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Weekly Transfer Chart -->
+          <div class="card">
+            <div class="card-head">
+              Weekly Data Transfer
+              <span class="card-head-tag tag-amber">Last 7 days</span>
+            </div>
+            <div class="card-body">
+              <div id="chart-bars"></div>
+            </div>
+          </div>
+
+          <!-- LED Status Panel -->
+          <div class="card">
+            <div class="card-head">
+              LED Status Indicators
+              <span class="card-head-tag tag-teal">Hardware</span>
+            </div>
+            <div class="card-body">
+              <div class="led-grid">
+                <div class="led-item">
+                  <div class="led led-green"></div>
+                  <div>
+                    <div style="font-size:12px;font-weight:500">Power</div>
+                    <div style="font-size:11px;color:var(--text3)">5V · 3.2A</div>
+                  </div>
+                </div>
+                <div class="led-item">
+                  <div class="led led-green"></div>
+                  <div>
+                    <div style="font-size:12px;font-weight:500">Disk Read</div>
+                    <div style="font-size:11px;color:var(--text3)">Active</div>
+                  </div>
+                </div>
+                <div class="led-item">
+                  <div class="led led-amber"></div>
+                  <div>
+                    <div style="font-size:12px;font-weight:500">Disk Write</div>
+                    <div style="font-size:11px;color:var(--text3)">Busy</div>
+                  </div>
+                </div>
+                <div class="led-item">
+                  <div class="led led-green"></div>
+                  <div>
+                    <div style="font-size:12px;font-weight:500">Network</div>
+                    <div style="font-size:11px;color:var(--text3)">1Gbps LAN</div>
+                  </div>
+                </div>
+                <div class="led-item">
+                  <div class="led led-green"></div>
+                  <div>
+                    <div style="font-size:12px;font-weight:500">WiFi</div>
+                    <div style="font-size:11px;color:var(--text3)">802.11ac</div>
+                  </div>
+                </div>
+                <div class="led-item">
+                  <div class="led led-off"></div>
+                  <div>
+                    <div style="font-size:12px;font-weight:500">USB 3.0</div>
+                    <div style="font-size:11px;color:var(--text3)">Idle</div>
+                  </div>
+                </div>
+              </div>
+              <div style="margin-top:14px; padding:12px; background:var(--bg3); border-radius:var(--radius); font-size:12px; font-family:'IBM Plex Mono',monospace; color:var(--text2);">
+                <span style="color:var(--teal);">$</span> uptime: 14d 7h 32m &nbsp;|&nbsp; temp: 48°C &nbsp;|&nbsp; load: 0.42
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── FILE EXPLORER PAGE ── -->
+      <div id="page-explorer" class="page">
+        <div class="explorer-toolbar">
+          <button class="btn-sm btn-ghost" style="padding:7px 10px;" onclick="alert('Back')">←</button>
+          <button class="btn-sm btn-ghost" style="padding:7px 10px;" onclick="alert('Forward')">→</button>
+          <div class="breadcrumb">
+            <span onclick="alert('Home')">~</span>
+            <span class="sep">/</span>
+            <span onclick="alert('Shared')">shared</span>
+            <span class="sep">/</span>
+            <span onclick="alert('Documents')">documents</span>
+          </div>
+          <button class="btn-sm btn-ghost">⊞ Grid</button>
+          <button class="btn-sm btn-ghost">≡ List</button>
+          <button class="btn-sm btn-teal" onclick="alert('New folder created!')">+ Folder</button>
+        </div>
+
+        <div class="card">
+          <div class="file-grid-header">
+            <span>Name</span>
+            <span>Size</span>
+            <span>Modified</span>
+            <span>Permissions</span>
+            <span></span>
+          </div>
+          <div id="file-list">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- ── UPLOAD PAGE ── -->
+      <div id="page-upload" class="page">
+        <div class="upload-zone" id="drop-zone"
+          ondragover="event.preventDefault(); this.classList.add('drag-over')"
+          ondragleave="this.classList.remove('drag-over')"
+          ondrop="handleDrop(event)">
+          <div class="upload-icon">☁️</div>
+          <div class="upload-title">Drop files here to upload</div>
+          <div class="upload-sub">or click to browse — max 4 GB per file</div>
+          <input type="file" id="file-input" multiple style="display:none" onchange="handleFileSelect(event)">
+          <button class="btn-sm btn-teal" onclick="document.getElementById('file-input').click()" style="font-size:13px;padding:9px 22px;">Browse Files</button>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <span style="font-size:13px; font-weight:500;">Upload Queue</span>
+          <div style="display:flex; gap:8px;">
+            <button class="btn-sm btn-ghost" onclick="clearCompleted()">Clear Completed</button>
+            <button class="btn-sm btn-teal" onclick="simulateUpload()">▶ Start All</button>
+          </div>
+        </div>
+
+        <div class="upload-list" id="upload-queue">
+          <div class="upload-item">
+            <div class="up-icon">📊</div>
+            <div class="up-info">
+              <div class="up-name">CS321_Project_Presentation.pptx</div>
+              <div class="up-size">14.2 MB · /shared/documents/</div>
+              <div class="up-bar"><div class="up-fill" style="width:100%; background:var(--teal);"></div></div>
+            </div>
+            <span class="up-status" style="color:var(--teal);">✓ Done</span>
+          </div>
+          <div class="upload-item">
+            <div class="up-icon">🎬</div>
+            <div class="up-info">
+              <div class="up-name">lecture_recording_05.mp4</div>
+              <div class="up-size">1.08 GB · /shared/videos/</div>
+              <div class="up-bar"><div class="up-fill" id="prog1" style="width:62%; background:var(--blue);"></div></div>
+            </div>
+            <span class="up-status" id="stat1" style="color:var(--blue);">62%</span>
+          </div>
+          <div class="upload-item">
+            <div class="up-icon">🗜️</div>
+            <div class="up-info">
+              <div class="up-name">dataset_backup.tar.gz</div>
+              <div class="up-size">342 MB · /backups/</div>
+              <div class="up-bar"><div class="up-fill" id="prog2" style="width:0%; background:var(--amber);"></div></div>
+            </div>
+            <span class="up-status" id="stat2" style="color:var(--text3);">Waiting</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── DOWNLOADS PAGE ── -->
+      <div id="page-downloads" class="page">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <span style="font-size:13px; color:var(--text2);">3 files available for download</span>
+          <div style="display:flex; gap:8px;">
+            <button class="btn-sm btn-ghost">Filter by type</button>
+            <button class="btn-sm btn-ghost">Sort by date ↓</button>
+          </div>
+        </div>
+
+        <div class="dl-list">
+          <div class="dl-item">
+            <div class="dl-thumb">📄</div>
+            <div class="dl-info">
+              <div class="dl-name">NAS_Setup_Guide_2026.pdf</div>
+              <div class="dl-meta">/shared/docs · 3.2 MB · Mar 15, 2026 · PDF</div>
+            </div>
+            <div class="dl-actions">
+              <button class="btn-sm btn-ghost" onclick="alert('Previewing...')">👁 Preview</button>
+              <button class="btn-sm btn-teal" onclick="downloadFile('NAS_Setup_Guide_2026.pdf')">↓ Download</button>
+            </div>
+          </div>
+          <div class="dl-item">
+            <div class="dl-thumb">🎬</div>
+            <div class="dl-info">
+              <div class="dl-name">lecture_recording_04.mp4</div>
+              <div class="dl-meta">/shared/videos · 1.1 GB · Mar 14, 2026 · MP4 · H.264</div>
+            </div>
+            <div class="dl-actions">
+              <button class="btn-sm btn-ghost" onclick="alert('Opening player...')">▶ Play</button>
+              <button class="btn-sm btn-teal" onclick="downloadFile('lecture_recording_04.mp4')">↓ Download</button>
+            </div>
+          </div>
+          <div class="dl-item">
+            <div class="dl-thumb">🗜️</div>
+            <div class="dl-info">
+              <div class="dl-name">project_source_code.zip</div>
+              <div class="dl-meta">/shared/code · 48.6 MB · Mar 13, 2026 · ZIP Archive</div>
+            </div>
+            <div class="dl-actions">
+              <button class="btn-sm btn-ghost" onclick="alert('Showing contents...')">🔍 Inspect</button>
+              <button class="btn-sm btn-teal" onclick="downloadFile('project_source_code.zip')">↓ Download</button>
+            </div>
+          </div>
+          <div class="dl-item">
+            <div class="dl-thumb">🖼️</div>
+            <div class="dl-info">
+              <div class="dl-name">team_photos_march.tar.gz</div>
+              <div class="dl-meta">/shared/media · 214 MB · Mar 10, 2026 · Archive</div>
+            </div>
+            <div class="dl-actions">
+              <button class="btn-sm btn-ghost" onclick="alert('Gallery preview...')">🖼 Gallery</button>
+              <button class="btn-sm btn-teal" onclick="downloadFile('team_photos_march.tar.gz')">↓ Download</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── MONITORING PAGE ── -->
+      <div id="page-monitoring" class="page">
+        <div class="stat-grid">
+          <div class="stat-card stat-teal">
+            <div class="stat-label">CPU Usage</div>
+            <div class="stat-value" id="cpu-val">14<span style="font-size:14px">%</span></div>
+            <div class="stat-sub">4-core ARM Cortex-A72</div>
+          </div>
+          <div class="stat-card stat-blue">
+            <div class="stat-label">RAM Usage</div>
+            <div class="stat-value">1.2<span style="font-size:14px">GB</span></div>
+            <div class="stat-sub">of 4 GB · 30%</div>
+          </div>
+          <div class="stat-card stat-amber">
+            <div class="stat-label">Temperature</div>
+            <div class="stat-value" id="temp-val">48<span style="font-size:14px">°C</span></div>
+            <div class="stat-sub">Throttle threshold: 80°C</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Uptime</div>
+            <div class="stat-value" style="color:var(--purple);" id="uptime-val">14<span style="font-size:14px">d</span></div>
+            <div class="stat-sub">Since Mar 3, 2026 · 09:14</div>
+          </div>
+        </div>
+
+        <div class="dash-grid">
+          <div class="card" style="grid-column: span 2;">
+            <div class="card-head">CPU & Network Live Monitor<span class="card-head-tag tag-teal">Live</span></div>
+            <div class="card-body">
+              <canvas id="monitor-canvas" width="700" height="120" style="width:100%;"></canvas>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">Disk Health<span class="card-head-tag tag-teal">S.M.A.R.T</span></div>
+            <div class="card-body" style="padding:0;">
+              <div class="settings-row"><span class="settings-key">Drive</span><span class="settings-val">/dev/sda · WD 320GB</span></div>
+              <div class="settings-row"><span class="settings-key">Status</span><span class="settings-val" style="color:var(--teal);">PASSED</span></div>
+              <div class="settings-row"><span class="settings-key">Power On Hours</span><span class="settings-val">8,420 hrs</span></div>
+              <div class="settings-row"><span class="settings-key">Reallocated Sectors</span><span class="settings-val">0</span></div>
+              <div class="settings-row"><span class="settings-key">Read Error Rate</span><span class="settings-val">0</span></div>
+              <div class="settings-row"><span class="settings-key">Temperature</span><span class="settings-val">38°C</span></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">Network Interfaces<span class="card-head-tag tag-blue">WiFi + LAN</span></div>
+            <div class="card-body" style="padding:0;">
+              <div class="settings-row"><span class="settings-key">eth0 (LAN)</span><span class="settings-val" style="color:var(--teal);">192.168.1.100</span></div>
+              <div class="settings-row"><span class="settings-key">Speed</span><span class="settings-val">1000 Mbps · Full</span></div>
+              <div class="settings-row"><span class="settings-key">wlan0 (WiFi)</span><span class="settings-val" style="color:var(--teal);">192.168.1.101</span></div>
+              <div class="settings-row"><span class="settings-key">Signal</span><span class="settings-val">-54 dBm · Excellent</span></div>
+              <div class="settings-row"><span class="settings-key">Hostname</span><span class="settings-val">pivault.local</span></div>
+              <div class="settings-row"><span class="settings-key">Active Sessions</span><span class="settings-val">3 clients</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── USERS PAGE ── -->
+      <div id="page-users" class="page">
+        <div style="display:flex; justify-content:space-between; margin-bottom:16px;">
+          <span style="font-size:13px; color:var(--text2);">3 users registered</span>
+          <button class="btn-sm btn-teal" onclick="alert('Add user dialog...')">+ Add User</button>
+        </div>
+        <div class="card">
+          <div class="card-body" style="padding:0;">
+            <div class="settings-row" style="padding:16px 18px;">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <div class="user-avatar" style="background:var(--teal); color:#0d1117;">AD</div>
+                <div>
+                  <div style="font-size:13px; font-weight:500;">Admin</div>
+                  <div style="font-size:11px; color:var(--text3); font-family:'IBM Plex Mono',monospace;">admin · root · All permissions</div>
+                </div>
+              </div>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <span class="card-head-tag tag-teal">Online</span>
+                <button class="btn-sm btn-ghost" onclick="alert('Edit admin...')">Edit</button>
+              </div>
+            </div>
+            <div class="settings-row" style="padding:16px 18px;">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <div class="user-avatar" style="background:#4facfe; color:#0d1117;">JD</div>
+                <div>
+                  <div style="font-size:13px; font-weight:500;">John Doe</div>
+                  <div style="font-size:11px; color:var(--text3); font-family:'IBM Plex Mono',monospace;">john · user · Read + Write /shared</div>
+                </div>
+              </div>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <span class="card-head-tag tag-teal">Online</span>
+                <button class="btn-sm btn-ghost" onclick="alert('Edit john...')">Edit</button>
+              </div>
+            </div>
+            <div class="settings-row" style="padding:16px 18px;">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <div class="user-avatar" style="background:var(--purple); color:white;">SW</div>
+                <div>
+                  <div style="font-size:13px; font-weight:500;">Sara Wilson</div>
+                  <div style="font-size:11px; color:var(--text3); font-family:'IBM Plex Mono',monospace;">sara · user · Read-only /shared</div>
+                </div>
+              </div>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <span class="card-head-tag tag-amber">Idle</span>
+                <button class="btn-sm btn-ghost" onclick="alert('Edit sara...')">Edit</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── SETTINGS PAGE ── -->
+      <div id="page-settings" class="page">
+        <div class="settings-grid">
+          <div class="settings-section">
+            <div class="card-head" style="padding:14px 18px;">Network & SMB</div>
+            <div class="settings-row"><span class="settings-key">Hostname</span><span class="settings-val">pivault.local</span></div>
+            <div class="settings-row"><span class="settings-key">Samba Share</span><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+            <div class="settings-row"><span class="settings-key">NFS Export</span><div class="toggle" onclick="this.classList.toggle('on')"></div></div>
+            <div class="settings-row"><span class="settings-key">FTP Access</span><div class="toggle" onclick="this.classList.toggle('on')"></div></div>
+            <div class="settings-row"><span class="settings-key">SFTP (SSH)</span><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+            <div class="settings-row"><span class="settings-key">Port (Web UI)</span><span class="settings-val">:8080</span></div>
+          </div>
+
+          <div class="settings-section">
+            <div class="card-head" style="padding:14px 18px;">Backup & Sync</div>
+            <div class="settings-row"><span class="settings-key">Auto Backup</span><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+            <div class="settings-row"><span class="settings-key">Schedule</span><span class="settings-val">Daily 02:00</span></div>
+            <div class="settings-row"><span class="settings-key">Retention</span><span class="settings-val">30 days</span></div>
+            <div class="settings-row"><span class="settings-key">Compression</span><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+            <div class="settings-row"><span class="settings-key">Last Backup</span><span class="settings-val" style="color:var(--teal);">Today 02:00</span></div>
+            <div class="settings-row"><span class="settings-key">Next Backup</span><span class="settings-val">Tomorrow 02:00</span></div>
+          </div>
+
+          <div class="settings-section">
+            <div class="card-head" style="padding:14px 18px;">Security</div>
+            <div class="settings-row"><span class="settings-key">Firewall</span><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+            <div class="settings-row"><span class="settings-key">Fail2Ban</span><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+            <div class="settings-row"><span class="settings-key">2FA</span><div class="toggle" onclick="this.classList.toggle('on')"></div></div>
+            <div class="settings-row"><span class="settings-key">Encryption at Rest</span><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+            <div class="settings-row"><span class="settings-key">SSL/TLS</span><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+            <div class="settings-row"><span class="settings-key">Audit Logs</span><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+          </div>
+
+          <div class="settings-section">
+            <div class="card-head" style="padding:14px 18px;">System</div>
+            <div class="settings-row"><span class="settings-key">OS</span><span class="settings-val">Raspberry Pi OS Lite</span></div>
+            <div class="settings-row"><span class="settings-key">Kernel</span><span class="settings-val">6.1.21-v8+</span></div>
+            <div class="settings-row"><span class="settings-key">Node.js</span><span class="settings-val">v20.11.0</span></div>
+            <div class="settings-row">
+              <span class="settings-key">Check Updates</span>
+              <button class="btn-sm btn-ghost" style="font-size:11px;" onclick="alert('System is up to date!')">Check Now</button>
+            </div>
+            <div class="settings-row">
+              <span class="settings-key">Restart NAS</span>
+              <button class="btn-sm btn-ghost" style="font-size:11px; color:var(--amber);" onclick="alert('Restarting services...')">Restart</button>
+            </div>
+            <div class="settings-row">
+              <span class="settings-key">Shutdown</span>
+              <button class="btn-sm" style="font-size:11px; color:var(--red); background:var(--red-bg); border:1px solid var(--red-bg);" onclick="alert('Shutdown initiated...')">Shutdown</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content-area -->
+  </div><!-- /main -->
+</div><!-- /app-screen -->
+
+<!-- Right-click context menu -->
+<div class="context-menu" id="ctx-menu">
+  <div class="ctx-item">📂 Open</div>
+  <div class="ctx-item">👁 Preview</div>
+  <div class="ctx-item">↓ Download</div>
+  <div class="ctx-item">✏️ Rename</div>
+  <div class="ctx-item danger">🗑️ Delete</div>
+</div>
+
+<script>
+// ─── CONFIG ──────────────────────────────────────────
+const API_BASE = `${window.location.protocol}//${window.location.host}`;
+let SESSION_TOKEN = localStorage.getItem('pivault_token') || null;
+let currentUser   = JSON.parse(localStorage.getItem('pivault_user') || 'null');
+let currentPath   = '';
+let monitorInterval;
+
+// ─── API HELPERS ─────────────────────────────────────
+async function api(method, endpoint, body = null) {
+  try {
+    const opts = { method, headers: { 'x-session-token': SESSION_TOKEN || '' } };
+    if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+    const res = await fetch(API_BASE + endpoint, opts);
+    if (res.status === 401) { forceLogout(); return null; }
+    return res;
+  } catch { showToast('Network error — is the server running?', 'error'); return null; }
+}
+async function apiJSON(method, endpoint, body = null) {
+  const res = await api(method, endpoint, body);
+  if (!res) return null;
+  const data = await res.json();
+  if (!res.ok) { showToast(data.error || 'Request failed', 'error'); return null; }
+  return data;
+}
+
+function showToast(msg, type = 'info') {
+  const colors = { info:'var(--blue)', success:'var(--teal)', error:'var(--red)', warn:'var(--amber)' };
+  const t = document.createElement('div');
+  t.style.cssText = `position:fixed;bottom:24px;right:24px;z-index:9999;background:var(--bg2);border:1px solid ${colors[type]};color:var(--text);padding:12px 18px;border-radius:8px;font-size:13px;font-family:'IBM Plex Mono',monospace;max-width:340px;animation:fadeUp 0.3s ease;box-shadow:0 4px 20px rgba(0,0,0,0.4);`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+// ─── LOGIN / LOGOUT ───────────────────────────────────
+async function doLogin() {
+  const u = document.getElementById('username').value.trim();
+  const p = document.getElementById('password').value;
+  if (!u || !p) { showToast('Enter your credentials', 'warn'); return; }
+  const btn = document.querySelector('.login-btn');
+  btn.textContent = 'Signing in...'; btn.disabled = true;
+  try {
+    const res  = await fetch(`${API_BASE}/api/login`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: u, password: p }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      showToast(data.error || 'Login failed', 'error');
+      btn.textContent = 'Sign in to PiVault'; btn.disabled = false; return;
+    }
+    SESSION_TOKEN = data.token;
+    currentUser   = { username: data.username, role: data.role };
+    localStorage.setItem('pivault_token', SESSION_TOKEN);
+    localStorage.setItem('pivault_user',  JSON.stringify(currentUser));
+    enterApp();
+  } catch {
+    showToast('Cannot reach server. Run: node server.js', 'error');
+    btn.textContent = 'Sign in to PiVault'; btn.disabled = false;
+  }
+}
+
+function enterApp() {
+  document.getElementById('login-screen').classList.remove('active');
+  document.getElementById('app-screen').classList.add('active');
+  document.querySelector('.user-name').textContent = currentUser.username;
+  document.querySelector('.user-role').textContent  = currentUser.role;
+  loadDashboard();
+  loadFiles('');
+  startMonitor();
+}
+
+async function doLogout() {
+  if (!confirm('Sign out of PiVault?')) return;
+  await apiJSON('POST', '/api/logout');
+  forceLogout();
+}
+
+function forceLogout() {
+  SESSION_TOKEN = null; currentUser = null;
+  localStorage.removeItem('pivault_token'); localStorage.removeItem('pivault_user');
+  clearInterval(monitorInterval);
+  document.getElementById('app-screen').classList.remove('active');
+  document.getElementById('login-screen').classList.add('active');
+  document.getElementById('password').value = '';
+  const btn = document.querySelector('.login-btn');
+  btn.textContent = 'Sign in to PiVault'; btn.disabled = false;
+}
+
+window.addEventListener('DOMContentLoaded', async () => {
+  if (SESSION_TOKEN && currentUser) {
+    try {
+      const h = await fetch(`${API_BASE}/api/health`);
+      if (h.ok) { enterApp(); return; }
+    } catch {}
+    forceLogout();
+  }
+});
+
+// ─── NAVIGATION ───────────────────────────────────────
+function showPage(id, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  if (el) el.classList.add('active');
+  const titles = {
+    dashboard:  ['Dashboard',       '/ overview'],
+    explorer:   ['File Explorer',   '/ ' + (currentPath || 'root')],
+    upload:     ['Upload Files',    '/ upload'],
+    downloads:  ['Downloads',       '/ downloads'],
+    monitoring: ['System Monitor',  '/ system'],
+    users:      ['User Management', '/ admin / users'],
+    settings:   ['Settings',        '/ admin / settings'],
+  };
+  if (titles[id]) {
+    document.getElementById('page-title').textContent = titles[id][0];
+    document.getElementById('page-path').textContent  = titles[id][1];
+  }
+  if (id === 'monitoring') startMonitor();
+}
+
+// ─── DASHBOARD ────────────────────────────────────────
+async function loadDashboard() {
+  const [stats, act] = await Promise.all([
+    apiJSON('GET', '/api/stats'),
+    apiJSON('GET', '/api/activity'),
+  ]);
+  if (stats) {
+    const cards = document.querySelectorAll('.stat-card');
+    if (stats.disk.total) {
+      cards[0].querySelector('.stat-value').innerHTML = stats.disk.totalFormatted.replace(/[A-Z]+$/, m => `<span style="font-size:14px">${m}</span>`);
+      cards[0].querySelector('.stat-sub').textContent = `${stats.disk.usedFormatted} used · ${stats.disk.freeFormatted} free`;
+      document.querySelector('.storage-fill').style.width = stats.disk.percentUsed + '%';
+      document.querySelector('.storage-label').lastElementChild.textContent = stats.disk.percentUsed + '%';
+      document.querySelector('.storage-nums').textContent = `${stats.disk.usedFormatted} / ${stats.disk.totalFormatted}`;
+    }
+    cards[2].querySelector('.stat-value').innerHTML = stats.cpu.percent + '<span style="font-size:14px">%</span>';
+    cards[2].querySelector('.stat-sub').textContent = `${stats.cpu.cores}-core · ${stats.system.platform}`;
+    cards[3].querySelector('.stat-value').textContent = stats.activeUsers.length;
+    cards[3].querySelector('.stat-sub').textContent   = stats.activeUsers.join(' · ') || 'none';
+    const uptEl = document.getElementById('uptime-val');
+    if (uptEl) { const d = Math.floor(stats.system.uptime/86400); uptEl.innerHTML = d + '<span style="font-size:14px">d</span>'; }
+  }
+  if (act && act.activity.length > 0) {
+    const feed = document.querySelector('#page-dashboard .card-body');
+    if (feed) {
+      const iconMap  = { upload:'📤', download:'📥', delete:'🗑️', login:'🔑', logout:'🔒', mkdir:'📁', rename:'✏️', preview:'👁️' };
+      const colorMap = { upload:'var(--teal-bg)', download:'var(--blue-bg)', delete:'var(--red-bg)', login:'var(--amber-bg)', mkdir:'var(--blue-bg)', preview:'var(--bg4)' };
+      feed.innerHTML = act.activity.slice(0,5).map(a => {
+        const diff = Math.round((Date.now() - new Date(a.time)) / 60000);
+        const timeStr = diff < 60 ? `${diff} min ago` : diff < 1440 ? `${Math.round(diff/60)} hr ago` : new Date(a.time).toLocaleDateString();
+        return `<div class="activity-item" style="padding:10px 18px;">
+          <div class="act-icon" style="background:${colorMap[a.action]||'var(--bg4)'};">${iconMap[a.action]||'📄'}</div>
+          <div class="act-name">${a.name}</div>
+          <div><div class="act-meta">${a.action}${a.size?' · '+a.size:''}</div><div class="act-time">${timeStr}</div></div>
+        </div>`;
+      }).join('');
+    }
+  }
+  buildChart();
+}
+
+// ─── FILE EXPLORER ────────────────────────────────────
+async function loadFiles(dirPath) {
+  currentPath = dirPath;
+  const list = document.getElementById('file-list');
+  list.innerHTML = '<div style="padding:20px 18px; color:var(--text3); font-size:13px;">Loading...</div>';
+  const data = await apiJSON('GET', `/api/files?path=${encodeURIComponent(dirPath)}`);
+  if (!data) return;
+
+  // Breadcrumb
+  const parts = dirPath ? dirPath.split('/') : [];
+  let crumb = `<span onclick="loadFiles('')">~</span>`;
+  parts.forEach((p, i) => {
+    const partial = parts.slice(0, i+1).join('/');
+    crumb += `<span class="sep">/</span><span onclick="loadFiles('${partial}')">${p}</span>`;
+  });
+  document.querySelector('.breadcrumb').innerHTML = crumb;
+  document.getElementById('page-path').textContent = '/ ' + (dirPath || 'root');
+
+  const typeClasses = { folder:'type-folder', doc:'type-doc', vid:'type-vid', zip:'type-zip', img:'type-img', code:'type-code', audio:'type-code', other:'type-zip' };
+  const typeLabels  = { folder:'DIR', doc:'DOC', vid:'VID', zip:'ZIP', img:'IMG', code:'CODE', audio:'MP3', other:'FILE' };
+  const fileIcons   = { folder:'📁', doc:'📄', vid:'🎬', zip:'🗜️', img:'🖼️', code:'⚙️', audio:'🎵', other:'📦' };
+
+  if (data.entries.length === 0) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-icon">📂</div>This folder is empty</div>';
+    return;
+  }
+
+  list.innerHTML = data.entries.map(f => {
+    const escapedPath = f.path.replace(/'/g, "\'");
+    const escapedName = f.name.replace(/'/g, "\'");
+    const dblClick = f.isDirectory
+      ? `loadFiles('${escapedPath}')`
+      : f.previewable
+        ? `openPreview('${escapedPath}','${escapedName}','${f.type}','${f.sizeFormatted}','${f.mime||''}')`
+        : `downloadFile('${escapedPath}','${escapedName}')`;
+    return `
+      <div class="file-row" oncontextmenu="showCtx(event,'${escapedPath}','${escapedName}','${f.type}','${f.previewable}','${f.isDirectory}')" ondblclick="${dblClick}">
+        <div class="file-name">
+          <span class="file-icon">${fileIcons[f.type]||'📄'}</span>
+          <span>${f.name}</span>
+          <span class="file-type-tag ${typeClasses[f.type]||'type-zip'}">${typeLabels[f.type]||'FILE'}</span>
+        </div>
+        <span class="file-size">${f.sizeFormatted}</span>
+        <span class="file-date">${f.modifiedFormatted}</span>
+        <span class="file-perms">${f.permissions}</span>
+        <div class="file-actions">
+          ${f.previewable ? `<div class="icon-btn" title="Preview" onclick="event.stopPropagation(); openPreview('${escapedPath}','${escapedName}','${f.type}','${f.sizeFormatted}','${f.mime||''}')">👁</div>` : ''}
+          ${!f.isDirectory ? `<div class="icon-btn" title="Download" onclick="event.stopPropagation(); downloadFile('${escapedPath}','${escapedName}')">↓</div>` : ''}
+          <div class="icon-btn" title="Rename" onclick="event.stopPropagation(); renameFile('${escapedPath}','${escapedName}')">✏</div>
+          <div class="icon-btn" title="Delete" onclick="event.stopPropagation(); deleteFile('${escapedPath}')">✕</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ─── MEDIA PREVIEW ────────────────────────────────────
+function previewURL(filePath) {
+  return `${API_BASE}/api/download?path=${encodeURIComponent(filePath)}&token=${SESSION_TOKEN}&preview=1`;
+}
+
+function openPreview(filePath, fileName, type, sizeStr, mime) {
+  const overlay = document.getElementById('preview-overlay');
+  const body    = document.getElementById('preview-body');
+  const dlBtn   = document.getElementById('preview-dl-btn');
+
+  document.getElementById('preview-title').textContent = fileName;
+  document.getElementById('preview-meta').textContent  = sizeStr + ' · ' + (mime || type).split('/').pop().toUpperCase();
+  document.getElementById('preview-path').textContent  = filePath;
+
+  dlBtn.onclick = () => downloadFile(filePath, fileName);
+  overlay.style.display = 'flex';
+  body.innerHTML = '<div class="preview-loading"><div class="spin"></div>Loading preview...</div>';
+
+  const url = previewURL(filePath);
+
+  if (type === 'img') {
+    const img = document.createElement('img');
+    img.src = url;
+    img.onload  = () => { body.innerHTML = ''; body.appendChild(img); };
+    img.onerror = () => { body.innerHTML = '<div class="preview-loading">Could not load image.</div>'; };
+
+  } else if (type === 'vid') {
+    body.innerHTML = `
+      <video controls autoplay preload="metadata"
+        style="max-width:88vw; max-height:78vh; outline:none; background:#000;">
+        <source src="${url}" type="${mime || 'video/mp4'}">
+        Your browser does not support this video format.
+      </video>`;
+
+  } else if (type === 'audio') {
+    body.innerHTML = `
+      <div class="audio-card">
+        <div class="audio-art">🎵</div>
+        <div class="audio-name">${fileName}</div>
+        <div class="audio-sub">${sizeStr} · ${(mime||'').split('/').pop().toUpperCase()}</div>
+        <audio controls autoplay style="width:100%; margin-top:8px;">
+          <source src="${url}" type="${mime || 'audio/mpeg'}">
+        </audio>
+      </div>`;
+
+  } else if (type === 'doc' && (fileName.endsWith('.txt') || fileName.endsWith('.md') || fileName.endsWith('.json') || fileName.endsWith('.sh') || fileName.endsWith('.js') || fileName.endsWith('.py') || fileName.endsWith('.css') || fileName.endsWith('.html'))) {
+    // Text file — fetch and display
+    fetch(url).then(r => r.text()).then(text => {
+      const pre = document.createElement('pre');
+      pre.className = 'text-preview';
+      pre.textContent = text;
+      body.innerHTML = '';
+      body.appendChild(pre);
+    }).catch(() => { body.innerHTML = '<div class="preview-loading">Could not load file text.</div>'; });
+
+  } else if (fileName.endsWith('.pdf')) {
+    // Use browser PDF viewer via iframe
+    body.innerHTML = `<iframe src="${url}" style="width:88vw; height:78vh; border:none; background:#fff;"></iframe>`;
+
+  } else {
+    body.innerHTML = '<div class="preview-loading" style="flex-direction:column; gap:16px;"><span style="font-size:28px">🚫</span>No preview available for this file type.<br><small style="color:var(--text3);">Use the Download button below.</small></div>';
+  }
+}
+
+function closePreview(event, force = false) {
+  if (!force && event && document.getElementById('preview-box').contains(event.target)) return;
+  const overlay = document.getElementById('preview-overlay');
+  overlay.style.display = 'none';
+  // Stop any media
+  overlay.querySelectorAll('video, audio').forEach(m => { m.pause(); m.src = ''; });
+  document.getElementById('preview-body').innerHTML = '';
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closePreview(null, true);
+  if (e.key === 'Enter' && document.getElementById('login-screen').classList.contains('active')) doLogin();
+});
+
+// ─── DOWNLOAD ─────────────────────────────────────────
+function downloadFile(filePath, name) {
+  showToast('Starting download: ' + name, 'info');
+  // Use a hidden form POST or just <a> with token in query param
+  const a = document.createElement('a');
+  a.href     = `${API_BASE}/api/download?path=${encodeURIComponent(filePath)}&token=${SESSION_TOKEN}`;
+  a.download = name;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => a.remove(), 1000);
+}
+
+// ─── FILE OPERATIONS ─────────────────────────────────
+async function deleteFile(filePath) {
+  if (!confirm(`Delete "${filePath}"?\nThis cannot be undone.`)) return;
+  const data = await apiJSON('DELETE', '/api/delete', { path: filePath });
+  if (data) { showToast('Deleted: ' + filePath, 'success'); loadFiles(currentPath); }
+}
+
+async function renameFile(oldPath, oldName) {
+  const newName = prompt('Rename to:', oldName);
+  if (!newName || newName === oldName) return;
+  const dir     = oldPath.includes('/') ? oldPath.substring(0, oldPath.lastIndexOf('/')) : '';
+  const newPath = dir ? dir + '/' + newName : newName;
+  const data = await apiJSON('POST', '/api/rename', { oldPath, newPath });
+  if (data) { showToast('Renamed to: ' + newName, 'success'); loadFiles(currentPath); }
+}
+
+async function createFolder() {
+  const name = prompt('New folder name:');
+  if (!name) return;
+  const folderPath = currentPath ? currentPath + '/' + name : name;
+  const data = await apiJSON('POST', '/api/folder', { path: folderPath });
+  if (data) { showToast('Folder created: ' + name, 'success'); loadFiles(currentPath); }
+}
+
+document.getElementById('new-folder-btn').onclick = createFolder;
+
+// ─── UPLOAD ───────────────────────────────────────────
+function handleFileSelect(e) { addFilesToQueue(Array.from(e.target.files)); }
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.remove('drag-over');
+  addFilesToQueue(Array.from(e.dataTransfer.files));
+}
+
+function addFilesToQueue(fileList) {
+  const queue = document.getElementById('upload-queue');
+  fileList.forEach(f => {
+    const id  = 'up_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    const div = document.createElement('div');
+    div.className = 'upload-item';
+    div.id = id;
+    div.innerHTML = `
+      <div class="up-icon">📄</div>
+      <div class="up-info">
+        <div class="up-name">${f.name}</div>
+        <div class="up-size">${(f.size/1024/1024).toFixed(2)} MB · /${currentPath||'root'}/</div>
+        <div class="up-bar"><div class="up-fill" id="fill_${id}" style="width:0%;background:var(--teal);"></div></div>
+      </div>
+      <span class="up-status" id="stat_${id}" style="color:var(--text3);">Pending</span>`;
+    div._file = f;
+    queue.appendChild(div);
+  });
+}
+
+async function simulateUpload() {
+  const items = [...document.querySelectorAll('.upload-item')].filter(el => el._file);
+  if (!items.length) { showToast('No files queued. Drop or browse files first.', 'warn'); return; }
+
+  for (const item of items) {
+    const f      = item._file;
+    const fillEl = item.querySelector('[id^="fill_"]');
+    const statEl = item.querySelector('[id^="stat_"]');
+    if (!fillEl || !statEl || !f) continue;
+
+    statEl.textContent = '0%';
+    statEl.style.color = 'var(--blue)';
+
+    await new Promise(resolve => {
+      const form = new FormData();
+      form.append('files', f);
+
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${API_BASE}/api/upload?path=${encodeURIComponent(currentPath)}`);
+      xhr.setRequestHeader('x-session-token', SESSION_TOKEN);
+
+      xhr.upload.onprogress = e => {
+        if (e.lengthComputable) {
+          const pct = Math.round((e.loaded / e.total) * 100);
+          fillEl.style.width = pct + '%';
+          statEl.textContent = pct + '%';
+        }
+      };
+      xhr.onload = () => {
+        if (xhr.status === 200) {
+          fillEl.style.width   = '100%';
+          fillEl.style.background = 'var(--teal)';
+          statEl.textContent   = '✓ Done';
+          statEl.style.color   = 'var(--teal)';
+          item._file = null;
+        } else {
+          try { const err = JSON.parse(xhr.responseText); statEl.textContent = '✗ ' + (err.error || 'Failed'); }
+          catch { statEl.textContent = '✗ Failed'; }
+          statEl.style.color = 'var(--red)';
+        }
+        resolve();
+      };
+      xhr.onerror = () => { statEl.textContent = '✗ Network error'; statEl.style.color = 'var(--red)'; resolve(); };
+      xhr.send(form);
+    });
+  }
+  showToast('Upload complete!', 'success');
+  loadFiles(currentPath);
+  loadDashboard();
+}
+
+function clearCompleted() {
+  document.querySelectorAll('.upload-item').forEach(el => {
+    const s = el.querySelector('[id^="stat_"]');
+    if (s && s.textContent.includes('Done')) el.remove();
+  });
+}
+
+// ─── CONTEXT MENU ────────────────────────────────────
+let ctxFile = {};
+function showCtx(e, filePath, fileName, type, previewable, isDir) {
+  e.preventDefault();
+  ctxFile = { filePath, fileName, type, previewable: previewable === 'true', isDir: isDir === 'true' };
+  const menu = document.getElementById('ctx-menu');
+  menu.style.display = 'block';
+  menu.style.left    = e.clientX + 'px';
+  menu.style.top     = e.clientY + 'px';
+}
+
+document.getElementById('ctx-menu').addEventListener('click', e => {
+  const item = e.target.closest('.ctx-item');
+  if (!item) return;
+  const t = item.textContent.trim();
+  if (t.includes('Open')     && ctxFile.isDir)       loadFiles(ctxFile.filePath);
+  if (t.includes('Preview')  && ctxFile.previewable)  openPreview(ctxFile.filePath, ctxFile.fileName, ctxFile.type, '', '');
+  if (t.includes('Download') && !ctxFile.isDir)       downloadFile(ctxFile.filePath, ctxFile.fileName);
+  if (t.includes('Rename'))                           renameFile(ctxFile.filePath, ctxFile.fileName);
+  if (t.includes('Delete'))                           deleteFile(ctxFile.filePath);
+  document.getElementById('ctx-menu').style.display = 'none';
+});
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('#ctx-menu')) document.getElementById('ctx-menu').style.display = 'none';
+});
+
+// ─── MONITORING ───────────────────────────────────────
+function startMonitor() {
+  const canvas = document.getElementById('monitor-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  const cpu = Array(70).fill(10).map(() => Math.random()*20+5);
+  const net = Array(70).fill(30).map(() => Math.random()*50+10);
+
+  function draw() {
+    ctx.clearRect(0,0,w,h); ctx.fillStyle='#12151c'; ctx.fillRect(0,0,w,h);
+    ctx.strokeStyle='#252d3e'; ctx.lineWidth=0.5;
+    for (let i=0;i<=4;i++) { const y=(h/4)*i; ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke(); }
+    function line(data, color, al) {
+      ctx.beginPath(); ctx.strokeStyle=color; ctx.lineWidth=1.5; ctx.globalAlpha=al;
+      data.forEach((v,i)=>{ const x=(i/(data.length-1))*w, y=h-(v/100)*h; i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); }); ctx.stroke();
+      ctx.beginPath();
+      data.forEach((v,i)=>{ const x=(i/(data.length-1))*w, y=h-(v/100)*h; i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); });
+      ctx.lineTo(w,h); ctx.lineTo(0,h); ctx.closePath(); ctx.fillStyle=color; ctx.globalAlpha=0.07; ctx.fill(); ctx.globalAlpha=1;
+    }
+    line(net,'#4facfe',0.8); line(cpu,'#00d4aa',0.9);
+    ctx.fillStyle='#4a5568'; ctx.font='10px IBM Plex Mono';
+    ctx.fillText('100%',4,12); ctx.fillText('50%',4,h/2+4); ctx.fillText('0%',4,h-3);
+    ctx.fillStyle='#00d4aa'; ctx.fillText('CPU',w-60,14);
+    ctx.fillStyle='#4facfe'; ctx.fillText('Network',w-60,26);
+  }
+
+  clearInterval(monitorInterval);
+  monitorInterval = setInterval(() => {
+    cpu.shift(); cpu.push(Math.max(2, Math.min(95, cpu[cpu.length-1]+(Math.random()-.5)*8)));
+    net.shift(); net.push(Math.max(2, Math.min(95, net[net.length-1]+(Math.random()-.5)*12)));
+    draw();
+    const cpuEl=document.getElementById('cpu-val'); if(cpuEl) cpuEl.innerHTML=Math.round(cpu[cpu.length-1])+'<span style="font-size:14px">%</span>';
+    const tmpEl=document.getElementById('temp-val'); if(tmpEl) tmpEl.innerHTML=Math.round(44+Math.random()*8)+'<span style="font-size:14px">°C</span>';
+  }, 800);
+
+  setInterval(async () => {
+    const stats = await apiJSON('GET', '/api/stats');
+    if (stats) { cpu.push(stats.cpu.percent); if(cpu.length>70) cpu.shift(); }
+  }, 5000);
+
+  draw();
+}
+
+function buildChart() {
+  const days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], vals=[1.2,3.8,2.1,5.4,4.2,1.8,2.9];
+  const max=Math.max(...vals), colors=['#4facfe','#00d4aa','#ffb547','#4facfe','#a78bfa','#00d4aa','#ffb547'];
+  const c=document.getElementById('chart-bars'); if(!c) return;
+  c.innerHTML=days.map((d,i)=>`<div class="chart-bar-row"><span class="chart-day">${d}</span><div class="chart-bar-wrap"><div class="chart-bar-fill" style="width:${Math.round((vals[i]/max)*100)}%;background:${colors[i]};"></div></div><span class="chart-num">${vals[i]}GB</span></div>`).join('');
+}
+</script>
+
+<!-- ════════ MEDIA PREVIEW MODAL ════════ -->
+<div class="preview-overlay" id="preview-overlay" style="display:none;" onclick="closePreview(event)">
+  <div class="preview-box" id="preview-box">
+    <div class="preview-header">
+      <span class="preview-title" id="preview-title">filename.ext</span>
+      <span class="preview-meta"  id="preview-meta">—</span>
+      <div class="preview-close" onclick="closePreview(null, true)">✕</div>
+    </div>
+    <div class="preview-body" id="preview-body">
+      <div class="preview-loading"><div class="spin"></div>Loading preview...</div>
+    </div>
+    <div class="preview-footer">
+      <span style="font-size:12px; color:var(--text3);" id="preview-path"></span>
+      <div style="display:flex; gap:8px;">
+        <button class="btn-sm btn-ghost" onclick="closePreview(null,true)">Close</button>
+        <button class="btn-sm btn-teal"  id="preview-dl-btn">↓ Download</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
