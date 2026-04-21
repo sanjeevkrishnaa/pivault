@@ -11,6 +11,7 @@ const fs         = require('fs');
 const path       = require('path');
 const os         = require('os');
 const { exec }   = require('child_process');
+const { spawn }  = require('child_process');
 
 const app  = express();
 const PORT = process.env.PORT || 8080;
@@ -24,6 +25,112 @@ const USERS = {
 
 const sessions    = {};
 const activityLog = [];
+
+// ─── MOTION RECORDING (IR SENSOR + USB WEBCAM) ──────
+const MOTION_ENABLED = process.env.MOTION_RECORDING_ENABLED === '1';
+const MOTION_GPIO_PIN = parseInt(process.env.MOTION_GPIO_PIN || '17', 10);
+const MOTION_GPIO_ACTIVE_HIGH = process.env.MOTION_GPIO_ACTIVE_HIGH !== '0';
+const MOTION_RECORD_SECONDS = parseInt(process.env.MOTION_RECORD_SECONDS || '10', 10);
+const MOTION_CAMERA_DEVICE = process.env.MOTION_CAMERA_DEVICE || '/dev/video0';
+const MOTION_OUTPUT_DIR = process.env.MOTION_OUTPUT_DIR || 'camera-events';
+const MOTION_FFMPEG_BIN = process.env.MOTION_FFMPEG_BIN || 'ffmpeg';
+
+const motionState = {
+  recording: false,
+  lastTriggerAt: 0,
+};
+
+function setupMotionRecording() {
+  if (!MOTION_ENABLED) return;
+
+  const gpioPath = `/sys/class/gpio/gpio${MOTION_GPIO_PIN}`;
+  const valuePath = path.join(gpioPath, 'value');
+  const edgePath = path.join(gpioPath, 'edge');
+  const directionPath = path.join(gpioPath, 'direction');
+
+  try {
+    if (!fs.existsSync(gpioPath)) {
+      fs.writeFileSync('/sys/class/gpio/export', String(MOTION_GPIO_PIN));
+    }
+
+    fs.writeFileSync(directionPath, 'in');
+    fs.writeFileSync(edgePath, 'rising');
+  } catch (err) {
+    console.error(`❌ Motion setup failed on GPIO ${MOTION_GPIO_PIN}: ${err.message}`);
+    console.error('   Tip: run on host or privileged container with GPIO access.');
+    return;
+  }
+
+  let polling = false;
+  let lastValue = null;
+  const onChange = () => {
+    if (polling) return;
+    polling = true;
+    fs.readFile(valuePath, 'utf8', (err, data) => {
+      polling = false;
+      if (err) return;
+      const value = data.trim();
+      if (value === lastValue) return;
+      lastValue = value;
+
+      const isActive = MOTION_GPIO_ACTIVE_HIGH ? value === '1' : value === '0';
+      if (isActive) handleMotionTrigger();
+    });
+  };
+
+  fs.watchFile(valuePath, { interval: 100 }, onChange);
+  onChange();
+  console.log(`🎯 Motion recording enabled (GPIO ${MOTION_GPIO_PIN} → ${MOTION_CAMERA_DEVICE}, ${MOTION_RECORD_SECONDS}s clips).`);
+}
+
+function handleMotionTrigger() {
+  const now = Date.now();
+  if (motionState.recording) return;
+  if (now - motionState.lastTriggerAt < 1500) return;
+  motionState.lastTriggerAt = now;
+
+  const eventDir = safePath(MOTION_OUTPUT_DIR);
+  if (!fs.existsSync(eventDir)) fs.mkdirSync(eventDir, { recursive: true });
+
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const outFile = path.join(eventDir, `motion-${stamp}.mp4`);
+
+  const args = [
+    '-y',
+    '-f', 'v4l2',
+    '-i', MOTION_CAMERA_DEVICE,
+    '-t', String(MOTION_RECORD_SECONDS),
+    '-vcodec', 'libx264',
+    '-pix_fmt', 'yuv420p',
+    outFile,
+  ];
+
+  motionState.recording = true;
+  logActivity('motion-start', path.relative(STORAGE_ROOT, outFile), null, 'sensor');
+  console.log(`📹 Motion detected. Recording started: ${outFile}`);
+
+  const rec = spawn(MOTION_FFMPEG_BIN, args, { stdio: ['ignore', 'ignore', 'pipe'] });
+  rec.stderr.on('data', () => {});
+
+  rec.on('close', code => {
+    motionState.recording = false;
+    if (code === 0 && fs.existsSync(outFile)) {
+      const size = fs.statSync(outFile).size;
+      const relPath = path.relative(STORAGE_ROOT, outFile);
+      logActivity('motion-recording', relPath, size, 'sensor');
+      console.log(`✅ Motion recording saved: ${relPath} (${formatBytes(size)})`);
+    } else {
+      logActivity('motion-failed', path.relative(STORAGE_ROOT, outFile), null, 'sensor');
+      console.error(`❌ Motion recording failed with code ${code}`);
+    }
+  });
+
+  rec.on('error', err => {
+    motionState.recording = false;
+    logActivity('motion-error', path.relative(STORAGE_ROOT, outFile), null, 'sensor');
+    console.error(`❌ Could not start ffmpeg: ${err.message}`);
+  });
+}
 
 // ─── MIDDLEWARE ───────────────────────────────────────
 app.use(cors());
@@ -380,4 +487,5 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`║  Storage: ${STORAGE_ROOT.slice(0,30).padEnd(30)} ║`);
   console.log('╚══════════════════════════════════════════╝');
   console.log('');
+  setupMotionRecording();
 });
