@@ -188,6 +188,7 @@ If Docker is running Node for you, use this flow instead of installing Node/npm 
 - USB camera: `/dev/video0`
 - GPIO: `/sys/class/gpio`, `/dev/gpiomem`, `/dev/gpiochip0`
 - FFmpeg inside container image
+- Motion recording enabled by default (`MOTION_RECORDING_ENABLED=1`)
 
 Run:
 ```bash
