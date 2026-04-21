@@ -14,7 +14,7 @@ services:
       - PORT=8080
       - STORAGE_ROOT=/data/storage
       - NODE_ENV=production
-      - MOTION_RECORDING_ENABLED=0
+      - MOTION_RECORDING_ENABLED=1
       - MOTION_GPIO_PIN=17
       - MOTION_GPIO_SYSFS_PIN=
       - MOTION_GPIO_ACTIVE_HIGH=1
