@@ -14,11 +14,12 @@ services:
       - PORT=8080
       - STORAGE_ROOT=/data/storage
       - NODE_ENV=production
-      - MOTION_RECORDING_ENABLED=0
+      - MOTION_RECORDING_ENABLED=1
       - MOTION_GPIO_PIN=17
       - MOTION_GPIO_SYSFS_PIN=
       - MOTION_GPIO_ACTIVE_HIGH=1
       - MOTION_RECORD_SECONDS=10
+      - MOTION_STARTUP_RECORD_SECONDS=5
       - MOTION_CAMERA_DEVICE=/dev/video0
       - MOTION_OUTPUT_DIR=camera-events
       - MOTION_FFMPEG_BIN=ffmpeg
