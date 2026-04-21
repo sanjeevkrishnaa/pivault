@@ -132,6 +132,93 @@ Access it from any device on your WiFi at: http://192.168.1.100:8080
 
 ---
 
+## Motion-triggered Recording (IR sensor + USB webcam)
+
+PiVault can optionally watch a GPIO pin (IR motion sensor) and, on movement, record a **60-second** clip from a USB webcam into NAS storage.
+
+### 1) Install FFmpeg on Raspberry Pi
+```bash
+sudo apt-get update
+sudo apt-get install -y ffmpeg
+```
+
+### 2) Wire your PIR/IR sensor
+- VCC → 5V (or 3.3V depending on module)
+- GND → GND
+- OUT → GPIO17 (default in config below)
+
+### 3) Start PiVault with motion env vars
+```bash
+cd ~/pivault
+npm install
+MOTION_RECORDING_ENABLED=1 \
+MOTION_GPIO_PIN=17 \
+MOTION_RECORD_SECONDS=60 \
+MOTION_CAMERA_DEVICE=/dev/video0 \
+MOTION_OUTPUT_DIR=camera-events \
+STORAGE_ROOT=/media/pi/NAS \
+node server.js
+```
+
+Recordings will appear in:
+`/media/pi/NAS/camera-events/`
+
+### 4) Optional systemd env vars
+Add these to your `pivault.service`:
+```ini
+Environment=MOTION_RECORDING_ENABLED=1
+Environment=MOTION_GPIO_PIN=17
+Environment=MOTION_RECORD_SECONDS=60
+Environment=MOTION_CAMERA_DEVICE=/dev/video0
+Environment=MOTION_OUTPUT_DIR=camera-events
+```
+
+> Note: GPIO access usually requires running on the host OS or a privileged container with GPIO devices mounted.
+
+---
+
+## Docker mode (recommended if you do not run Node on host)
+
+If Docker is running Node for you, use this flow instead of installing Node/npm on the Pi host.
+
+### 1) Mount NAS on the host OS
+Example:
+```bash
+sudo mkdir -p /mnt/nas
+sudo mount /dev/sda1 /mnt/nas
+```
+
+### 2) Start container with hardware routed in
+`docker-compose.yml` is already configured for:
+- USB camera: `/dev/video0`
+- GPIO: `/sys/class/gpio`, `/dev/gpiomem`, `/dev/gpiochip0`
+- FFmpeg inside container image
+
+Run:
+```bash
+cd ~/pivault
+NAS_HOST_PATH=/mnt/nas \
+MOTION_RECORDING_ENABLED=1 \
+MOTION_GPIO_PIN=17 \
+MOTION_RECORD_SECONDS=60 \
+docker compose up -d --build
+```
+
+### 3) Verify logs
+```bash
+docker compose logs -f pivault
+```
+
+Look for:
+- `🎯 Motion recording enabled ...`
+- `📹 Motion detected. Recording started ...`
+- `✅ Motion recording saved ...`
+
+Recordings will be at:
+`/mnt/nas/camera-events/`
+
+---
+
 ## API Reference
 
 | Method | Endpoint              | Description                          |

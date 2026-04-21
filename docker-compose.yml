@@ -10,16 +10,26 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - nas_storage:/data/storage
+      - ${NAS_HOST_PATH:-./storage}:/data/storage
+      - /sys/class/gpio:/sys/class/gpio
     environment:
       - PORT=8080
       - STORAGE_ROOT=/data/storage
       - NODE_ENV=production
+      - MOTION_RECORDING_ENABLED=0
+      - MOTION_GPIO_PIN=17
+      - MOTION_GPIO_ACTIVE_HIGH=1
+      - MOTION_RECORD_SECONDS=60
+      - MOTION_CAMERA_DEVICE=/dev/video0
+      - MOTION_OUTPUT_DIR=camera-events
+      - MOTION_FFMPEG_BIN=ffmpeg
     networks:
       - pivault_net
-
-volumes:
-  nas_storage:
+    devices:
+      - "/dev/video0:/dev/video0"
+      - "/dev/gpiomem:/dev/gpiomem"
+      - "/dev/gpiochip0:/dev/gpiochip0"
+    privileged: true
 
 networks:
   pivault_net:
