@@ -17,10 +17,13 @@ services:
       - MOTION_RECORDING_ENABLED=0
       - MOTION_GPIO_PIN=17
       - MOTION_GPIO_ACTIVE_HIGH=1
-      - MOTION_RECORD_SECONDS=10
+      - MOTION_RECORD_SECONDS=60
       - MOTION_CAMERA_DEVICE=/dev/video0
       - MOTION_OUTPUT_DIR=camera-events
       - MOTION_FFMPEG_BIN=ffmpeg
+      - MOTION_RECORD_SECONDS=60
+      - MOTION_CAMERA_DEVICE=/dev/video0
+      - MOTION_OUTPUT_DIR=camera-events
     networks:
       - pivault_net
     devices:
@@ -28,6 +31,10 @@ services:
       - "/dev/gpiomem:/dev/gpiomem"
       - "/dev/gpiochip0:/dev/gpiochip0"
     privileged: true
+    privileged: true
+
+volumes:
+  nas_storage:
 
 networks:
   pivault_net:

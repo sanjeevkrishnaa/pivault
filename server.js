@@ -30,7 +30,7 @@ const activityLog = [];
 const MOTION_ENABLED = process.env.MOTION_RECORDING_ENABLED === '1';
 const MOTION_GPIO_PIN = parseInt(process.env.MOTION_GPIO_PIN || '17', 10);
 const MOTION_GPIO_ACTIVE_HIGH = process.env.MOTION_GPIO_ACTIVE_HIGH !== '0';
-const MOTION_RECORD_SECONDS = parseInt(process.env.MOTION_RECORD_SECONDS || '10', 10);
+const MOTION_RECORD_SECONDS = parseInt(process.env.MOTION_RECORD_SECONDS || '60', 10);
 const MOTION_CAMERA_DEVICE = process.env.MOTION_CAMERA_DEVICE || '/dev/video0';
 const MOTION_OUTPUT_DIR = process.env.MOTION_OUTPUT_DIR || 'camera-events';
 const MOTION_FFMPEG_BIN = process.env.MOTION_FFMPEG_BIN || 'ffmpeg';
