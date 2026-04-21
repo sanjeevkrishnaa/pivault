@@ -47,9 +47,6 @@ const motionState = {
 
 function setupMotionRecording() {
   if (!MOTION_ENABLED) {
-    if (MOTION_STARTUP_RECORD_SECONDS > 0) {
-      console.log('⚠️ Motion recording is disabled (MOTION_RECORDING_ENABLED!=1), so startup camera verification was skipped.');
-    }
     return;
   }
 
@@ -151,10 +148,8 @@ function handleMotionTrigger() {
 
 function recordStartupClip() {
   if (motionState.startupRecorded) return;
-  if (!Number.isFinite(MOTION_STARTUP_RECORD_SECONDS) || MOTION_STARTUP_RECORD_SECONDS <= 0) return;
 
   motionState.startupRecorded = true;
-  recordClip(MOTION_STARTUP_RECORD_SECONDS, 'startup', '🎥 Startup camera check recording started');
 }
 
 function recordClip(durationSeconds, clipPrefix, startMessage) {
