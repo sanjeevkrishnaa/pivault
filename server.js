@@ -65,7 +65,9 @@ function setupMotionRecording() {
     }
 
     fs.writeFileSync(directionPath, 'in');
-    fs.writeFileSync(edgePath, 'rising');
+    // Capture either transition and let MOTION_GPIO_ACTIVE_HIGH decide
+    // whether 1 or 0 means "motion active" for this sensor module.
+    fs.writeFileSync(edgePath, 'both');
   } catch (err) {
     console.error(`❌ Motion setup failed on GPIO ${MOTION_GPIO_PIN} (sysfs:${gpioNumber}): ${err.message}`);
     console.error('   Tip: run on host or privileged container with GPIO access.');
