@@ -292,3 +292,14 @@ docker compose exec pivault sh -lc 'pwd && ls -la /app && sed -n "1,420p" /app/s
 MOTION_GPIO_SYSFS_PIN=529 docker compose up -d --build
 ```
 (529 is a common mapping for BCM17 on some Pi kernels.)
+
+**Motion never triggers but startup clip works** — your PIR output polarity may be inverted. Try:
+```bash
+MOTION_GPIO_ACTIVE_HIGH=0 docker compose up -d --build
+```
+
+**Need GPIO debug logs** — print raw GPIO value transitions and trigger-ignore reasons:
+```bash
+MOTION_DEBUG_GPIO=1 docker compose up -d --build
+docker compose logs -f pivault
+```
