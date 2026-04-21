@@ -43,7 +43,7 @@ const MQ2_GPIO_PIN = parseInt(process.env.MQ2_GPIO_PIN || '21', 10);
 const MQ2_GPIO_SYSFS_PIN = process.env.MQ2_GPIO_SYSFS_PIN
   ? parseInt(process.env.MQ2_GPIO_SYSFS_PIN, 10)
   : null;
-const MQ2_ACTIVE_HIGH = process.env.MQ2_ACTIVE_HIGH !== '0';
+const MQ2_ACTIVE_HIGH = process.env.MQ2_ACTIVE_HIGH === '1';
 const BUZZER_GPIO_PIN = parseInt(process.env.BUZZER_GPIO_PIN || '22', 10);
 const BUZZER_GPIO_SYSFS_PIN = process.env.BUZZER_GPIO_SYSFS_PIN
   ? parseInt(process.env.BUZZER_GPIO_SYSFS_PIN, 10)
@@ -54,6 +54,17 @@ const motionState = {
   recording: false,
   lastTriggerAt: 0,
   startupRecorded: false,
+};
+
+const mq2State = {
+  enabled: MQ2_ENABLED,
+  gasDetected: false,
+  buzzerOn: false,
+  inputValue: null,
+  lastChangedAt: null,
+  inputSysfsPin: null,
+  buzzerSysfsPin: null,
+  error: null,
 };
 
 const mq2State = {

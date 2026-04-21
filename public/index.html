@@ -503,6 +503,7 @@
 
   .led-green { background: var(--teal); box-shadow: 0 0 6px var(--teal); animation: pulse 2s infinite; }
   .led-amber { background: var(--amber); box-shadow: 0 0 6px var(--amber); animation: pulse 2.5s infinite; }
+  .led-red { background: var(--red); box-shadow: 0 0 6px var(--red); animation: pulse 1.4s infinite; }
   .led-off { background: var(--text3); }
 
   /* ─── FILE EXPLORER ──────────────────────────────── */
@@ -943,7 +944,6 @@
             <div class="stat-label">Files & Folders</div>
             <div class="stat-value">4,821</div>
             <div class="stat-sub" id="files-sub">+14 added today</div>
-            <div class="stat-sub" id="mq2-status" style="margin-top:6px; color:var(--text3);">MQ-2: unknown</div>
           </div>
           <div class="stat-card stat-amber">
             <div class="stat-label">Network Speed</div>
@@ -1064,7 +1064,7 @@
           <!-- LED Status Panel -->
           <div class="card">
             <div class="card-head">
-              LED Status Indicators
+              STATUS INDICATOR
               <span class="card-head-tag tag-teal">Hardware</span>
             </div>
             <div class="card-body">
@@ -1084,10 +1084,10 @@
                   </div>
                 </div>
                 <div class="led-item">
-                  <div class="led led-amber"></div>
+                  <div class="led" id="mq2-led-dot"></div>
                   <div>
-                    <div style="font-size:12px;font-weight:500">Disk Write</div>
-                    <div style="font-size:11px;color:var(--text3)">Busy</div>
+                    <div style="font-size:12px;font-weight:500">MQ-2 Gas</div>
+                    <div style="font-size:11px;color:var(--text3)" id="mq2-led-status">Checking...</div>
                   </div>
                 </div>
                 <div class="led-item">
@@ -1578,20 +1578,21 @@ async function loadDashboard() {
     cards[1].querySelector('.stat-value').textContent = stats.storage.fileCount;
     const filesSub = document.getElementById('files-sub');
     if (filesSub) filesSub.textContent = `Root: ${stats.storage.root}`;
-    const mq2El = document.getElementById('mq2-status');
-    if (mq2El) {
+    const mq2LedDot = document.getElementById('mq2-led-dot');
+    const mq2LedStatus = document.getElementById('mq2-led-status');
+    if (mq2LedDot && mq2LedStatus) {
       if (!stats.mq2 || !stats.mq2.enabled) {
-        mq2El.style.color = 'var(--text3)';
-        mq2El.textContent = 'MQ-2: disabled';
+        mq2LedDot.className = 'led';
+        mq2LedStatus.textContent = 'Disabled';
       } else if (stats.mq2.error) {
-        mq2El.style.color = 'var(--red)';
-        mq2El.textContent = `MQ-2 error: ${stats.mq2.error}`;
+        mq2LedDot.className = 'led led-red';
+        mq2LedStatus.textContent = `Error: ${stats.mq2.error}`;
       } else if (stats.mq2.gasDetected) {
-        mq2El.style.color = 'var(--red)';
-        mq2El.textContent = `MQ-2: GAS DETECTED • buzzer ${stats.mq2.buzzerOn ? 'ON' : 'OFF'}`;
+        mq2LedDot.className = 'led led-red';
+        mq2LedStatus.textContent = `Gas detected • buzzer ${stats.mq2.buzzerOn ? 'ON' : 'OFF'}`;
       } else {
-        mq2El.style.color = 'var(--teal)';
-        mq2El.textContent = `MQ-2: normal • buzzer ${stats.mq2.buzzerOn ? 'ON' : 'OFF'}`;
+        mq2LedDot.className = 'led led-green';
+        mq2LedStatus.textContent = `Normal • buzzer ${stats.mq2.buzzerOn ? 'ON' : 'OFF'}`;
       }
     }
     cards[2].querySelector('.stat-value').innerHTML = stats.cpu.percent + '<span style="font-size:14px">%</span>';

@@ -25,7 +25,7 @@ services:
       - MQ2_ENABLED=1
       - MQ2_GPIO_PIN=21
       - MQ2_GPIO_SYSFS_PIN=
-      - MQ2_ACTIVE_HIGH=1
+      - MQ2_ACTIVE_HIGH=0
       - BUZZER_GPIO_PIN=22
       - BUZZER_GPIO_SYSFS_PIN=
       - BUZZER_ACTIVE_HIGH=1
