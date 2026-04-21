@@ -269,3 +269,17 @@ netsh advfirewall firewall add rule name="PiVault" protocol=TCP dir=in localport
 **Upload fails** — check that the storage folder exists and is writable.
 
 **Can't access from other devices** — use the Network URL shown at startup (not localhost).
+
+**Docker keeps restarting with `ENOENT ... /app/server.key`** — this means your container is running an older image/config that expects TLS key files. Rebuild cleanly and recreate:
+```bash
+cd ~/pivault
+docker compose down --remove-orphans
+docker compose build --no-cache
+docker compose up -d
+docker compose logs -f pivault
+```
+
+If it still shows `/app/server.key`, verify you are in the correct repo folder and check what code is inside the running container:
+```bash
+docker compose exec pivault sh -lc 'pwd && ls -la /app && sed -n "1,420p" /app/server.js | tail -n 80'
+```
