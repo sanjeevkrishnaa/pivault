@@ -33,7 +33,8 @@ const MOTION_GPIO_SYSFS_PIN = process.env.MOTION_GPIO_SYSFS_PIN
   ? parseInt(process.env.MOTION_GPIO_SYSFS_PIN, 10)
   : null;
 const MOTION_GPIO_ACTIVE_HIGH = process.env.MOTION_GPIO_ACTIVE_HIGH !== '0';
-const MOTION_RECORD_SECONDS = parseInt(process.env.MOTION_RECORD_SECONDS || '10', 10);
+const MOTION_DEBUG_GPIO = process.env.MOTION_DEBUG_GPIO === '1';
+const MOTION_RECORD_SECONDS = parseInt(process.env.MOTION_RECORD_SECONDS || '5', 10);
 const MOTION_CAMERA_DEVICE = process.env.MOTION_CAMERA_DEVICE || '/dev/video0';
 const MOTION_OUTPUT_DIR = process.env.MOTION_OUTPUT_DIR || 'camera-events';
 const MOTION_FFMPEG_BIN = process.env.MOTION_FFMPEG_BIN || 'ffmpeg';
@@ -58,7 +59,9 @@ function setupMotionRecording() {
     }
 
     fs.writeFileSync(directionPath, 'in');
-    fs.writeFileSync(edgePath, 'rising');
+    // Capture either transition and let MOTION_GPIO_ACTIVE_HIGH decide
+    // whether 1 or 0 means "motion active" for this sensor module.
+    fs.writeFileSync(edgePath, 'both');
   } catch (err) {
     console.error(`❌ Motion setup failed on GPIO ${MOTION_GPIO_PIN} (sysfs:${gpioNumber}): ${err.message}`);
     console.error('   Tip: run on host or privileged container with GPIO access.');
@@ -78,11 +81,16 @@ function setupMotionRecording() {
       lastValue = value;
 
       const isActive = MOTION_GPIO_ACTIVE_HIGH ? value === '1' : value === '0';
+      if (MOTION_DEBUG_GPIO) {
+        console.log(`🧪 GPIO state changed: value=${value} active=${isActive ? 'yes' : 'no'}`);
+      }
       if (isActive) handleMotionTrigger();
     });
   };
 
-  fs.watchFile(valuePath, { interval: 100 }, onChange);
+  // Sysfs GPIO "value" files do not consistently emit watch events across kernels,
+  // so use explicit polling for reliable motion detection.
+  setInterval(onChange, 100);
   onChange();
   console.log(`🎯 Motion recording enabled (GPIO ${MOTION_GPIO_PIN} / sysfs ${gpioNumber} → ${MOTION_CAMERA_DEVICE}, ${MOTION_RECORD_SECONDS}s clips).`);
 }
@@ -122,8 +130,14 @@ function resolveSysfsGpioNumber(bcmPin, explicitSysfsPin) {
 
 function handleMotionTrigger() {
   const now = Date.now();
-  if (motionState.recording) return;
-  if (now - motionState.lastTriggerAt < 1500) return;
+  if (motionState.recording) {
+    if (MOTION_DEBUG_GPIO) console.log('🧪 Trigger ignored: recording already in progress.');
+    return;
+  }
+  if (now - motionState.lastTriggerAt < 1500) {
+    if (MOTION_DEBUG_GPIO) console.log('🧪 Trigger ignored: debounce window active.');
+    return;
+  }
   motionState.lastTriggerAt = now;
 
   const eventDir = safePath(MOTION_OUTPUT_DIR);

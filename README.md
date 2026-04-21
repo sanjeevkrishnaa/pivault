@@ -154,7 +154,7 @@ npm install
 MOTION_RECORDING_ENABLED=1 \
 MOTION_GPIO_PIN=17 \
 MOTION_GPIO_SYSFS_PIN= \
-MOTION_RECORD_SECONDS=10 \
+MOTION_RECORD_SECONDS=5 \
 MOTION_CAMERA_DEVICE=/dev/video0 \
 MOTION_OUTPUT_DIR=camera-events \
 STORAGE_ROOT=/media/pi/NAS \
@@ -170,7 +170,7 @@ Add these to your `pivault.service`:
 Environment=MOTION_RECORDING_ENABLED=1
 Environment=MOTION_GPIO_PIN=17
 Environment=MOTION_GPIO_SYSFS_PIN=
-Environment=MOTION_RECORD_SECONDS=10
+Environment=MOTION_RECORD_SECONDS=5
 Environment=MOTION_CAMERA_DEVICE=/dev/video0
 Environment=MOTION_OUTPUT_DIR=camera-events
 ```
@@ -183,14 +183,7 @@ Environment=MOTION_OUTPUT_DIR=camera-events
 
 If Docker is running Node for you, use this flow instead of installing Node/npm on the Pi host.
 
-### 1) Mount NAS on the host OS
-Example:
-```bash
-sudo mkdir -p /mnt/nas
-sudo mount /dev/sda1 /mnt/nas
-```
-
-### 2) Start container with hardware routed in
+### 1) Start container with hardware routed in
 `docker-compose.yml` is already configured for:
 - USB camera: `/dev/video0`
 - GPIO: `/sys/class/gpio`, `/dev/gpiomem`, `/dev/gpiochip0`
@@ -199,15 +192,14 @@ sudo mount /dev/sda1 /mnt/nas
 Run:
 ```bash
 cd ~/pivault
-NAS_HOST_PATH=/mnt/nas \
 MOTION_RECORDING_ENABLED=1 \
 MOTION_GPIO_PIN=17 \
 MOTION_GPIO_SYSFS_PIN= \
-MOTION_RECORD_SECONDS=10 \
+MOTION_RECORD_SECONDS=5 \
 docker compose up -d --build
 ```
 
-### 3) Verify logs
+### 2) Verify logs
 ```bash
 docker compose logs -f pivault
 ```
@@ -218,7 +210,7 @@ Look for:
 - `✅ Motion recording saved ...`
 
 Recordings will be at:
-`/mnt/nas/camera-events/`
+`./storage/camera-events/`
 
 ---
 
@@ -292,3 +284,14 @@ docker compose exec pivault sh -lc 'pwd && ls -la /app && sed -n "1,420p" /app/s
 MOTION_GPIO_SYSFS_PIN=529 docker compose up -d --build
 ```
 (529 is a common mapping for BCM17 on some Pi kernels.)
+
+**Motion never triggers** — your PIR output polarity may be inverted. Try:
+```bash
+MOTION_GPIO_ACTIVE_HIGH=0 docker compose up -d --build
+```
+
+**Need GPIO debug logs** — print raw GPIO value transitions and trigger-ignore reasons:
+```bash
+MOTION_DEBUG_GPIO=1 docker compose up -d --build
+docker compose logs -f pivault
+```
