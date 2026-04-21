@@ -38,11 +38,33 @@ const MOTION_RECORD_SECONDS = parseInt(process.env.MOTION_RECORD_SECONDS || '5',
 const MOTION_CAMERA_DEVICE = process.env.MOTION_CAMERA_DEVICE || '/dev/video0';
 const MOTION_OUTPUT_DIR = process.env.MOTION_OUTPUT_DIR || 'camera-events';
 const MOTION_FFMPEG_BIN = process.env.MOTION_FFMPEG_BIN || 'ffmpeg';
+const MQ2_ENABLED = process.env.MQ2_ENABLED === '1';
+const MQ2_GPIO_PIN = parseInt(process.env.MQ2_GPIO_PIN || '21', 10);
+const MQ2_GPIO_SYSFS_PIN = process.env.MQ2_GPIO_SYSFS_PIN
+  ? parseInt(process.env.MQ2_GPIO_SYSFS_PIN, 10)
+  : null;
+const MQ2_ACTIVE_HIGH = process.env.MQ2_ACTIVE_HIGH !== '0';
+const BUZZER_GPIO_PIN = parseInt(process.env.BUZZER_GPIO_PIN || '22', 10);
+const BUZZER_GPIO_SYSFS_PIN = process.env.BUZZER_GPIO_SYSFS_PIN
+  ? parseInt(process.env.BUZZER_GPIO_SYSFS_PIN, 10)
+  : null;
+const BUZZER_ACTIVE_HIGH = process.env.BUZZER_ACTIVE_HIGH !== '0';
 
 const motionState = {
   recording: false,
   lastTriggerAt: 0,
   startupRecorded: false,
+};
+
+const mq2State = {
+  enabled: MQ2_ENABLED,
+  gasDetected: false,
+  buzzerOn: false,
+  inputValue: null,
+  lastChangedAt: null,
+  inputSysfsPin: null,
+  buzzerSysfsPin: null,
+  error: null,
 };
 
 function setupMotionRecording() {
@@ -194,6 +216,74 @@ function recordClip(durationSeconds, clipPrefix, startMessage) {
     logActivity(`${clipPrefix}-error`, path.relative(STORAGE_ROOT, outFile), null, 'sensor');
     console.error(`❌ Could not start ffmpeg: ${err.message}`);
   });
+}
+
+function setupMq2Monitoring() {
+  if (!MQ2_ENABLED) return;
+
+  const mq2SysfsPin = resolveSysfsGpioNumber(MQ2_GPIO_PIN, MQ2_GPIO_SYSFS_PIN);
+  const buzzerSysfsPin = resolveSysfsGpioNumber(BUZZER_GPIO_PIN, BUZZER_GPIO_SYSFS_PIN);
+  mq2State.inputSysfsPin = mq2SysfsPin;
+  mq2State.buzzerSysfsPin = buzzerSysfsPin;
+
+  const mq2Path = `/sys/class/gpio/gpio${mq2SysfsPin}`;
+  const buzzerPath = `/sys/class/gpio/gpio${buzzerSysfsPin}`;
+  const mq2ValuePath = path.join(mq2Path, 'value');
+  const mq2DirectionPath = path.join(mq2Path, 'direction');
+  const mq2EdgePath = path.join(mq2Path, 'edge');
+  const buzzerValuePath = path.join(buzzerPath, 'value');
+  const buzzerDirectionPath = path.join(buzzerPath, 'direction');
+
+  try {
+    if (!fs.existsSync(mq2Path)) fs.writeFileSync('/sys/class/gpio/export', String(mq2SysfsPin));
+    if (!fs.existsSync(buzzerPath)) fs.writeFileSync('/sys/class/gpio/export', String(buzzerSysfsPin));
+
+    fs.writeFileSync(mq2DirectionPath, 'in');
+    fs.writeFileSync(mq2EdgePath, 'both');
+    fs.writeFileSync(buzzerDirectionPath, 'out');
+    fs.writeFileSync(buzzerValuePath, BUZZER_ACTIVE_HIGH ? '0' : '1');
+  } catch (err) {
+    mq2State.error = err.message;
+    console.error(`❌ MQ-2 setup failed (MQ2 GPIO ${MQ2_GPIO_PIN}, buzzer GPIO ${BUZZER_GPIO_PIN}): ${err.message}`);
+    return;
+  }
+
+  const setBuzzer = (on) => {
+    try {
+      fs.writeFileSync(buzzerValuePath, on ? (BUZZER_ACTIVE_HIGH ? '1' : '0') : (BUZZER_ACTIVE_HIGH ? '0' : '1'));
+      mq2State.buzzerOn = on;
+    } catch (err) {
+      mq2State.error = err.message;
+      console.error(`❌ Failed to write buzzer GPIO: ${err.message}`);
+    }
+  };
+
+  const poll = () => {
+    fs.readFile(mq2ValuePath, 'utf8', (err, raw) => {
+      if (err) return;
+      const value = raw.trim();
+      if (value !== '0' && value !== '1') return;
+      if (value === mq2State.inputValue) return;
+
+      mq2State.inputValue = value;
+      mq2State.lastChangedAt = new Date().toISOString();
+      const isActive = MQ2_ACTIVE_HIGH ? value === '1' : value === '0';
+      mq2State.gasDetected = isActive;
+      setBuzzer(isActive);
+
+      if (isActive) {
+        logActivity('mq2-alert', `MQ-2 gas threshold crossed (GPIO ${MQ2_GPIO_PIN})`, null, 'sensor');
+        console.log('🚨 MQ-2 threshold crossed. Buzzer ON.');
+      } else {
+        logActivity('mq2-clear', `MQ-2 returned to normal (GPIO ${MQ2_GPIO_PIN})`, null, 'sensor');
+        console.log('✅ MQ-2 normal. Buzzer OFF.');
+      }
+    });
+  };
+
+  setInterval(poll, 150);
+  poll();
+  console.log(`🧪 MQ-2 monitoring enabled (GPIO ${MQ2_GPIO_PIN}/sysfs ${mq2SysfsPin}) with buzzer GPIO ${BUZZER_GPIO_PIN}/sysfs ${buzzerSysfsPin}.`);
 }
 
 // ─── MIDDLEWARE ───────────────────────────────────────
@@ -531,6 +621,16 @@ app.get('/api/stats', requireAuth, (req, res) => {
         nodeVersion: process.version, arch: os.arch(),
       },
       storage: { root: STORAGE_ROOT, fileCount },
+      mq2: {
+        enabled: mq2State.enabled,
+        gasDetected: mq2State.gasDetected,
+        buzzerOn: mq2State.buzzerOn,
+        inputValue: mq2State.inputValue,
+        lastChangedAt: mq2State.lastChangedAt,
+        inputSysfsPin: mq2State.inputSysfsPin,
+        buzzerSysfsPin: mq2State.buzzerSysfsPin,
+        error: mq2State.error,
+      },
       activeUsers: Object.values(sessions).map(s => s.username),
     });
   });
@@ -552,4 +652,5 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log('╚══════════════════════════════════════════╝');
   console.log('');
   setupMotionRecording();
+  setupMq2Monitoring();
 });

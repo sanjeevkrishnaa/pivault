@@ -942,7 +942,8 @@
           <div class="stat-card stat-blue">
             <div class="stat-label">Files & Folders</div>
             <div class="stat-value">4,821</div>
-            <div class="stat-sub">+14 added today</div>
+            <div class="stat-sub" id="files-sub">+14 added today</div>
+            <div class="stat-sub" id="mq2-status" style="margin-top:6px; color:var(--text3);">MQ-2: unknown</div>
           </div>
           <div class="stat-card stat-amber">
             <div class="stat-label">Network Speed</div>
@@ -1573,6 +1574,25 @@ async function loadDashboard() {
       document.querySelector('.storage-fill').style.width = stats.disk.percentUsed + '%';
       document.querySelector('.storage-label').lastElementChild.textContent = stats.disk.percentUsed + '%';
       document.querySelector('.storage-nums').textContent = `${stats.disk.usedFormatted} / ${stats.disk.totalFormatted}`;
+    }
+    cards[1].querySelector('.stat-value').textContent = stats.storage.fileCount;
+    const filesSub = document.getElementById('files-sub');
+    if (filesSub) filesSub.textContent = `Root: ${stats.storage.root}`;
+    const mq2El = document.getElementById('mq2-status');
+    if (mq2El) {
+      if (!stats.mq2 || !stats.mq2.enabled) {
+        mq2El.style.color = 'var(--text3)';
+        mq2El.textContent = 'MQ-2: disabled';
+      } else if (stats.mq2.error) {
+        mq2El.style.color = 'var(--red)';
+        mq2El.textContent = `MQ-2 error: ${stats.mq2.error}`;
+      } else if (stats.mq2.gasDetected) {
+        mq2El.style.color = 'var(--red)';
+        mq2El.textContent = `MQ-2: GAS DETECTED • buzzer ${stats.mq2.buzzerOn ? 'ON' : 'OFF'}`;
+      } else {
+        mq2El.style.color = 'var(--teal)';
+        mq2El.textContent = `MQ-2: normal • buzzer ${stats.mq2.buzzerOn ? 'ON' : 'OFF'}`;
+      }
     }
     cards[2].querySelector('.stat-value').innerHTML = stats.cpu.percent + '<span style="font-size:14px">%</span>';
     cards[2].querySelector('.stat-sub').textContent = `${stats.cpu.cores}-core · ${stats.system.platform}`;

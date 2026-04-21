@@ -197,6 +197,9 @@ MOTION_RECORDING_ENABLED=1 \
 MOTION_GPIO_PIN=17 \
 MOTION_GPIO_SYSFS_PIN= \
 MOTION_RECORD_SECONDS=5 \
+MQ2_ENABLED=1 \
+MQ2_GPIO_PIN=21 \
+BUZZER_GPIO_PIN=22 \
 docker compose up -d --build
 ```
 
@@ -207,13 +210,21 @@ docker compose logs -f pivault
 
 Look for:
 - `🎯 Motion recording enabled ...`
-- `🎥 Startup camera check recording started ...`
-- `✅ startup recording saved ...`
+- `🧪 MQ-2 monitoring enabled ...`
 - `📹 Motion detected. Recording started ...`
 - `✅ Motion recording saved ...`
+- `🚨 MQ-2 threshold crossed. Buzzer ON.`
 
 Recordings will be at:
 `./storage/camera-events/`
+
+### 3) MQ-2 + buzzer wiring
+- MQ-2 `D0` → GPIO21
+- Buzzer `SIG` → GPIO22
+- Shared `GND` with Raspberry Pi
+- MQ-2 `VCC` per module requirements
+
+When MQ-2 crosses threshold (digital `D0` active), PiVault turns buzzer on and shows live MQ-2 status on the dashboard.
 
 ---
 
