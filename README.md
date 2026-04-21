@@ -177,6 +177,48 @@ Environment=MOTION_OUTPUT_DIR=camera-events
 
 ---
 
+## Docker mode (recommended if you do not run Node on host)
+
+If Docker is running Node for you, use this flow instead of installing Node/npm on the Pi host.
+
+### 1) Mount NAS on the host OS
+Example:
+```bash
+sudo mkdir -p /mnt/nas
+sudo mount /dev/sda1 /mnt/nas
+```
+
+### 2) Start container with hardware routed in
+`docker-compose.yml` is already configured for:
+- USB camera: `/dev/video0`
+- GPIO: `/sys/class/gpio`, `/dev/gpiomem`, `/dev/gpiochip0`
+- FFmpeg inside container image
+
+Run:
+```bash
+cd ~/pivault
+NAS_HOST_PATH=/mnt/nas \
+MOTION_RECORDING_ENABLED=1 \
+MOTION_GPIO_PIN=17 \
+MOTION_RECORD_SECONDS=60 \
+docker compose up -d --build
+```
+
+### 3) Verify logs
+```bash
+docker compose logs -f pivault
+```
+
+Look for:
+- `🎯 Motion recording enabled ...`
+- `📹 Motion detected. Recording started ...`
+- `✅ Motion recording saved ...`
+
+Recordings will be at:
+`/mnt/nas/camera-events/`
+
+---
+
 ## API Reference
 
 | Method | Endpoint              | Description                          |
