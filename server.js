@@ -46,7 +46,12 @@ const motionState = {
 };
 
 function setupMotionRecording() {
-  if (!MOTION_ENABLED) return;
+  if (!MOTION_ENABLED) {
+    if (MOTION_STARTUP_RECORD_SECONDS > 0) {
+      console.log('⚠️ Motion recording is disabled (MOTION_RECORDING_ENABLED!=1), so startup camera verification was skipped.');
+    }
+    return;
+  }
 
   const gpioNumber = resolveSysfsGpioNumber(MOTION_GPIO_PIN, MOTION_GPIO_SYSFS_PIN);
   const gpioPath = `/sys/class/gpio/gpio${gpioNumber}`;
