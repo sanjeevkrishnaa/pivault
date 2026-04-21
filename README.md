@@ -134,7 +134,7 @@ Access it from any device on your WiFi at: http://192.168.1.100:8080
 
 ## Motion-triggered Recording (IR sensor + USB webcam)
 
-PiVault can optionally watch a GPIO pin (IR motion sensor) and, on movement, record a **60-second** clip from a USB webcam into NAS storage.
+PiVault can optionally watch a GPIO pin (IR motion sensor) and, on movement, record a **10-second** clip from a USB webcam into NAS storage.
 
 ### 1) Install FFmpeg on Raspberry Pi
 ```bash
@@ -153,7 +153,8 @@ cd ~/pivault
 npm install
 MOTION_RECORDING_ENABLED=1 \
 MOTION_GPIO_PIN=17 \
-MOTION_RECORD_SECONDS=60 \
+MOTION_GPIO_SYSFS_PIN= \
+MOTION_RECORD_SECONDS=10 \
 MOTION_CAMERA_DEVICE=/dev/video0 \
 MOTION_OUTPUT_DIR=camera-events \
 STORAGE_ROOT=/media/pi/NAS \
@@ -168,7 +169,8 @@ Add these to your `pivault.service`:
 ```ini
 Environment=MOTION_RECORDING_ENABLED=1
 Environment=MOTION_GPIO_PIN=17
-Environment=MOTION_RECORD_SECONDS=60
+Environment=MOTION_GPIO_SYSFS_PIN=
+Environment=MOTION_RECORD_SECONDS=10
 Environment=MOTION_CAMERA_DEVICE=/dev/video0
 Environment=MOTION_OUTPUT_DIR=camera-events
 ```
@@ -200,7 +202,8 @@ cd ~/pivault
 NAS_HOST_PATH=/mnt/nas \
 MOTION_RECORDING_ENABLED=1 \
 MOTION_GPIO_PIN=17 \
-MOTION_RECORD_SECONDS=60 \
+MOTION_GPIO_SYSFS_PIN= \
+MOTION_RECORD_SECONDS=10 \
 docker compose up -d --build
 ```
 
@@ -283,3 +286,9 @@ If it still shows `/app/server.key`, verify you are in the correct repo folder a
 ```bash
 docker compose exec pivault sh -lc 'pwd && ls -la /app && sed -n "1,420p" /app/server.js | tail -n 80'
 ```
+
+**Motion setup failed with `EINVAL` while exporting GPIO** — on newer Raspberry Pi kernels, sysfs GPIO numbers may be offset (for example base + BCM pin). Keep `MOTION_GPIO_PIN=17` and set the mapped sysfs number explicitly:
+```bash
+MOTION_GPIO_SYSFS_PIN=529 docker compose up -d --build
+```
+(529 is a common mapping for BCM17 on some Pi kernels.)

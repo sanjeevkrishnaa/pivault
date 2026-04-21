@@ -29,8 +29,11 @@ const activityLog = [];
 // ─── MOTION RECORDING (IR SENSOR + USB WEBCAM) ──────
 const MOTION_ENABLED = process.env.MOTION_RECORDING_ENABLED === '1';
 const MOTION_GPIO_PIN = parseInt(process.env.MOTION_GPIO_PIN || '17', 10);
+const MOTION_GPIO_SYSFS_PIN = process.env.MOTION_GPIO_SYSFS_PIN
+  ? parseInt(process.env.MOTION_GPIO_SYSFS_PIN, 10)
+  : null;
 const MOTION_GPIO_ACTIVE_HIGH = process.env.MOTION_GPIO_ACTIVE_HIGH !== '0';
-const MOTION_RECORD_SECONDS = parseInt(process.env.MOTION_RECORD_SECONDS || '60', 10);
+const MOTION_RECORD_SECONDS = parseInt(process.env.MOTION_RECORD_SECONDS || '10', 10);
 const MOTION_CAMERA_DEVICE = process.env.MOTION_CAMERA_DEVICE || '/dev/video0';
 const MOTION_OUTPUT_DIR = process.env.MOTION_OUTPUT_DIR || 'camera-events';
 const MOTION_FFMPEG_BIN = process.env.MOTION_FFMPEG_BIN || 'ffmpeg';
@@ -43,20 +46,21 @@ const motionState = {
 function setupMotionRecording() {
   if (!MOTION_ENABLED) return;
 
-  const gpioPath = `/sys/class/gpio/gpio${MOTION_GPIO_PIN}`;
+  const gpioNumber = resolveSysfsGpioNumber(MOTION_GPIO_PIN, MOTION_GPIO_SYSFS_PIN);
+  const gpioPath = `/sys/class/gpio/gpio${gpioNumber}`;
   const valuePath = path.join(gpioPath, 'value');
   const edgePath = path.join(gpioPath, 'edge');
   const directionPath = path.join(gpioPath, 'direction');
 
   try {
     if (!fs.existsSync(gpioPath)) {
-      fs.writeFileSync('/sys/class/gpio/export', String(MOTION_GPIO_PIN));
+      fs.writeFileSync('/sys/class/gpio/export', String(gpioNumber));
     }
 
     fs.writeFileSync(directionPath, 'in');
     fs.writeFileSync(edgePath, 'rising');
   } catch (err) {
-    console.error(`❌ Motion setup failed on GPIO ${MOTION_GPIO_PIN}: ${err.message}`);
+    console.error(`❌ Motion setup failed on GPIO ${MOTION_GPIO_PIN} (sysfs:${gpioNumber}): ${err.message}`);
     console.error('   Tip: run on host or privileged container with GPIO access.');
     return;
   }
@@ -80,7 +84,40 @@ function setupMotionRecording() {
 
   fs.watchFile(valuePath, { interval: 100 }, onChange);
   onChange();
-  console.log(`🎯 Motion recording enabled (GPIO ${MOTION_GPIO_PIN} → ${MOTION_CAMERA_DEVICE}, ${MOTION_RECORD_SECONDS}s clips).`);
+  console.log(`🎯 Motion recording enabled (GPIO ${MOTION_GPIO_PIN} / sysfs ${gpioNumber} → ${MOTION_CAMERA_DEVICE}, ${MOTION_RECORD_SECONDS}s clips).`);
+}
+
+function resolveSysfsGpioNumber(bcmPin, explicitSysfsPin) {
+  if (Number.isInteger(explicitSysfsPin)) return explicitSysfsPin;
+  if (!Number.isInteger(bcmPin) || bcmPin < 0) throw new Error(`Invalid GPIO pin: ${bcmPin}`);
+
+  try {
+    const gpioRoot = '/sys/class/gpio';
+    const chips = fs.readdirSync(gpioRoot).filter(n => /^gpiochip\d+$/.test(n));
+
+    let best = null;
+    for (const chip of chips) {
+      const chipDir = path.join(gpioRoot, chip);
+      const base = parseInt(fs.readFileSync(path.join(chipDir, 'base'), 'utf8').trim(), 10);
+      const ngpio = parseInt(fs.readFileSync(path.join(chipDir, 'ngpio'), 'utf8').trim(), 10);
+      const labelPath = path.join(chipDir, 'label');
+      const label = fs.existsSync(labelPath) ? fs.readFileSync(labelPath, 'utf8').trim().toLowerCase() : '';
+
+      if (!Number.isFinite(base) || !Number.isFinite(ngpio)) continue;
+      if (bcmPin >= ngpio) continue;
+
+      // Prefer the BCM controller when labels are available (newer Raspberry Pi kernels).
+      const score = label.includes('bcm') || label.includes('pinctrl') ? 2 : 1;
+      if (!best || score > best.score) best = { score, mapped: base + bcmPin };
+    }
+
+    if (best) return best.mapped;
+  } catch {
+    // Fallback to legacy direct numbering below.
+  }
+
+  // Legacy sysfs on older kernels often maps BCM pin directly.
+  return bcmPin;
 }
 
 function handleMotionTrigger() {
