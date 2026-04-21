@@ -195,6 +195,7 @@ sudo mount /dev/sda1 /mnt/nas
 - USB camera: `/dev/video0`
 - GPIO: `/sys/class/gpio`, `/dev/gpiomem`, `/dev/gpiochip0`
 - FFmpeg inside container image
+- Motion recording enabled by default (`MOTION_RECORDING_ENABLED=1`)
 
 Run:
 ```bash
@@ -204,8 +205,11 @@ MOTION_RECORDING_ENABLED=1 \
 MOTION_GPIO_PIN=17 \
 MOTION_GPIO_SYSFS_PIN= \
 MOTION_RECORD_SECONDS=10 \
+MOTION_STARTUP_RECORD_SECONDS=5 \
 docker compose up -d --build
 ```
+
+If `docker compose exec pivault sh -lc 'echo $MOTION_RECORDING_ENABLED'` prints `0`, startup and motion clips are disabled.
 
 ### 3) Verify logs
 ```bash
@@ -214,6 +218,8 @@ docker compose logs -f pivault
 
 Look for:
 - `🎯 Motion recording enabled ...`
+- `🎥 Startup camera check recording started ...`
+- `✅ startup recording saved ...`
 - `📹 Motion detected. Recording started ...`
 - `✅ Motion recording saved ...`
 
