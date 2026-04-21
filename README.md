@@ -204,6 +204,7 @@ MOTION_RECORDING_ENABLED=1 \
 MOTION_GPIO_PIN=17 \
 MOTION_GPIO_SYSFS_PIN= \
 MOTION_RECORD_SECONDS=10 \
+MOTION_STARTUP_RECORD_SECONDS=5 \
 docker compose up -d --build
 ```
 
@@ -214,6 +215,8 @@ docker compose logs -f pivault
 
 Look for:
 - `🎯 Motion recording enabled ...`
+- `🎥 Startup camera check recording started ...`
+- `✅ startup recording saved ...`
 - `📹 Motion detected. Recording started ...`
 - `✅ Motion recording saved ...`
 
