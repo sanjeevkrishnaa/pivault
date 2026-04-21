@@ -15,8 +15,16 @@ services:
       - PORT=8080
       - STORAGE_ROOT=/data/storage
       - NODE_ENV=production
+      - MOTION_RECORDING_ENABLED=0
+      - MOTION_GPIO_PIN=17
+      - MOTION_RECORD_SECONDS=60
+      - MOTION_CAMERA_DEVICE=/dev/video0
+      - MOTION_OUTPUT_DIR=camera-events
     networks:
       - pivault_net
+    devices:
+      - "/dev/video0:/dev/video0"
+    privileged: true
 
 volumes:
   nas_storage:
