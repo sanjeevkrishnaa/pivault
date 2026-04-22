@@ -50,7 +50,7 @@ const BUZZER_GPIO_SYSFS_PIN = process.env.BUZZER_GPIO_SYSFS_PIN
   : null;
 const BUZZER_ACTIVE_HIGH = process.env.BUZZER_ACTIVE_HIGH !== '0';
 const DISK_READ_LED_ENABLED = process.env.DISK_READ_LED_ENABLED !== '0';
-const DISK_READ_LED_PIN = parseInt(process.env.DISK_READ_LED_PIN || '18', 10);
+const DISK_READ_LED_PIN = parseInt(process.env.DISK_READ_LED_PIN || '2', 10);
 const DISK_READ_LED_SYSFS_PIN = process.env.DISK_READ_LED_SYSFS_PIN
   ? parseInt(process.env.DISK_READ_LED_SYSFS_PIN, 10)
   : null;
@@ -285,7 +285,7 @@ function setupMq2Monitoring() {
       mq2State.lastChangedAt = new Date().toISOString();
       const isActive = MQ2_ACTIVE_HIGH ? value === '1' : value === '0';
       mq2State.gasDetected = isActive;
-      setBuzzer(isActive);
+      setBuzzer(!isActive);
 
       if (isActive) {
         logActivity('mq2-alert', `MQ-2 gas threshold crossed (GPIO ${MQ2_GPIO_PIN})`, null, 'sensor');
