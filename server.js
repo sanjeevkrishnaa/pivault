@@ -287,7 +287,7 @@ function setupMq2Monitoring() {
       mq2State.gasDetected = isActive;
       setBuzzer(!isActive);
 
-      if (isActive) {
+      if (!isActive) {
         logActivity('mq2-alert', `MQ-2 gas threshold crossed (GPIO ${MQ2_GPIO_PIN})`, null, 'sensor');
         console.log('🚨 MQ-2 threshold crossed. Buzzer ON.');
       } else {
