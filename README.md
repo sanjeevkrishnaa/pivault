@@ -201,6 +201,7 @@ MQ2_ENABLED=1 \
 MQ2_GPIO_PIN=21 \
 MQ2_ACTIVE_HIGH=0 \
 BUZZER_GPIO_PIN=22 \
+BUZZER_ACTIVE_HIGH=0 \
 docker compose up -d --build
 ```
 
@@ -229,6 +230,9 @@ When MQ-2 crosses threshold (digital `D0` active), PiVault turns buzzer on and s
 
 Most MQ-2 modules expose `D0` as **LOW when gas is detected**, so default config uses:
 `MQ2_ACTIVE_HIGH=0`
+
+Many buzzer modules are also active-LOW, so default config uses:
+`BUZZER_ACTIVE_HIGH=0`
 
 ---
 

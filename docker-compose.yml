@@ -28,7 +28,7 @@ services:
       - MQ2_ACTIVE_HIGH=0
       - BUZZER_GPIO_PIN=22
       - BUZZER_GPIO_SYSFS_PIN=
-      - BUZZER_ACTIVE_HIGH=1
+      - BUZZER_ACTIVE_HIGH=0
     networks:
       - pivault_net
     devices:
