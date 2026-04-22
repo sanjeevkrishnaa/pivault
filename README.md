@@ -200,7 +200,7 @@ MOTION_RECORD_SECONDS=5 \
 MQ2_ENABLED=1 \
 MQ2_GPIO_PIN=21 \
 BUZZER_GPIO_PIN=22 \
-DISK_READ_LED_PIN=18 \
+DISK_READ_LED_PIN=2 \
 docker compose up -d --build
 ```
 
@@ -229,7 +229,7 @@ Recordings will be at:
 When MQ-2 crosses threshold (digital `D0` active), PiVault turns buzzer on and shows live MQ-2 status on the dashboard.
 
 ### 4) Disk Read LED wiring
-- LED anode (+) → resistor (220Ω to 1kΩ) → GPIO18
+- LED anode (+) → resistor (220Ω to 1kΩ) → GPIO2
 - LED cathode (-) → GND
 
 PiVault pulses this LED whenever file data is served from `/api/download` (including inline preview/range streaming), matching the "Disk Read" activity behavior.
