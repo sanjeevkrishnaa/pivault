@@ -53,6 +53,29 @@ const BUZZER_ACTIVE_HIGH = process.env.BUZZER_ACTIVE_HIGH === '1';
 const motionState = {
   recording: false,
   lastTriggerAt: 0,
+  startupRecorded: false,
+};
+
+const mq2State = {
+  enabled: MQ2_ENABLED,
+  gasDetected: false,
+  buzzerOn: false,
+  inputValue: null,
+  lastChangedAt: null,
+  inputSysfsPin: null,
+  buzzerSysfsPin: null,
+  error: null,
+};
+
+const mq2State = {
+  enabled: MQ2_ENABLED,
+  gasDetected: false,
+  buzzerOn: false,
+  inputValue: null,
+  lastChangedAt: null,
+  inputSysfsPin: null,
+  buzzerSysfsPin: null,
+  error: null,
 };
 
 const mq2State = {
@@ -67,7 +90,9 @@ const mq2State = {
 };
 
 function setupMotionRecording() {
-  if (!MOTION_ENABLED) return;
+  if (!MOTION_ENABLED) {
+    return;
+  }
 
   const gpioNumber = resolveSysfsGpioNumber(MOTION_GPIO_PIN, MOTION_GPIO_SYSFS_PIN);
   const gpioPath = `/sys/class/gpio/gpio${gpioNumber}`;
@@ -115,6 +140,7 @@ function setupMotionRecording() {
   setInterval(onChange, 100);
   onChange();
   console.log(`🎯 Motion recording enabled (GPIO ${MOTION_GPIO_PIN} / sysfs ${gpioNumber} → ${MOTION_CAMERA_DEVICE}, ${MOTION_RECORD_SECONDS}s clips).`);
+  recordStartupClip();
 }
 
 function resolveSysfsGpioNumber(bcmPin, explicitSysfsPin) {
@@ -161,26 +187,35 @@ function handleMotionTrigger() {
     return;
   }
   motionState.lastTriggerAt = now;
+  recordClip(MOTION_RECORD_SECONDS, 'motion', '📹 Motion detected. Recording started');
+}
 
+function recordStartupClip() {
+  if (motionState.startupRecorded) return;
+
+  motionState.startupRecorded = true;
+}
+
+function recordClip(durationSeconds, clipPrefix, startMessage) {
   const eventDir = safePath(MOTION_OUTPUT_DIR);
   if (!fs.existsSync(eventDir)) fs.mkdirSync(eventDir, { recursive: true });
 
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const outFile = path.join(eventDir, `motion-${stamp}.mp4`);
+  const outFile = path.join(eventDir, `${clipPrefix}-${stamp}.mp4`);
 
   const args = [
     '-y',
     '-f', 'v4l2',
     '-i', MOTION_CAMERA_DEVICE,
-    '-t', String(MOTION_RECORD_SECONDS),
+    '-t', String(durationSeconds),
     '-vcodec', 'libx264',
     '-pix_fmt', 'yuv420p',
     outFile,
   ];
 
   motionState.recording = true;
-  logActivity('motion-start', path.relative(STORAGE_ROOT, outFile), null, 'sensor');
-  console.log(`📹 Motion detected. Recording started: ${outFile}`);
+  logActivity(`${clipPrefix}-start`, path.relative(STORAGE_ROOT, outFile), null, 'sensor');
+  console.log(`${startMessage}: ${outFile}`);
 
   const rec = spawn(MOTION_FFMPEG_BIN, args, { stdio: ['ignore', 'ignore', 'pipe'] });
   rec.stderr.on('data', () => {});
@@ -190,17 +225,17 @@ function handleMotionTrigger() {
     if (code === 0 && fs.existsSync(outFile)) {
       const size = fs.statSync(outFile).size;
       const relPath = path.relative(STORAGE_ROOT, outFile);
-      logActivity('motion-recording', relPath, size, 'sensor');
-      console.log(`✅ Motion recording saved: ${relPath} (${formatBytes(size)})`);
+      logActivity(`${clipPrefix}-recording`, relPath, size, 'sensor');
+      console.log(`✅ ${clipPrefix} recording saved: ${relPath} (${formatBytes(size)})`);
     } else {
-      logActivity('motion-failed', path.relative(STORAGE_ROOT, outFile), null, 'sensor');
-      console.error(`❌ Motion recording failed with code ${code}`);
+      logActivity(`${clipPrefix}-failed`, path.relative(STORAGE_ROOT, outFile), null, 'sensor');
+      console.error(`❌ ${clipPrefix} recording failed with code ${code}`);
     }
   });
 
   rec.on('error', err => {
     motionState.recording = false;
-    logActivity('motion-error', path.relative(STORAGE_ROOT, outFile), null, 'sensor');
+    logActivity(`${clipPrefix}-error`, path.relative(STORAGE_ROOT, outFile), null, 'sensor');
     console.error(`❌ Could not start ffmpeg: ${err.message}`);
   });
 }
