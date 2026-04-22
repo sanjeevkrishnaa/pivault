@@ -49,6 +49,13 @@ const BUZZER_GPIO_SYSFS_PIN = process.env.BUZZER_GPIO_SYSFS_PIN
   ? parseInt(process.env.BUZZER_GPIO_SYSFS_PIN, 10)
   : null;
 const BUZZER_ACTIVE_HIGH = process.env.BUZZER_ACTIVE_HIGH !== '0';
+const DISK_READ_LED_ENABLED = process.env.DISK_READ_LED_ENABLED !== '0';
+const DISK_READ_LED_PIN = parseInt(process.env.DISK_READ_LED_PIN || '18', 10);
+const DISK_READ_LED_SYSFS_PIN = process.env.DISK_READ_LED_SYSFS_PIN
+  ? parseInt(process.env.DISK_READ_LED_SYSFS_PIN, 10)
+  : null;
+const DISK_READ_LED_ACTIVE_HIGH = process.env.DISK_READ_LED_ACTIVE_HIGH !== '0';
+const DISK_READ_LED_HOLD_MS = parseInt(process.env.DISK_READ_LED_HOLD_MS || '350', 10);
 
 const motionState = {
   recording: false,
@@ -64,6 +71,15 @@ const mq2State = {
   lastChangedAt: null,
   inputSysfsPin: null,
   buzzerSysfsPin: null,
+  error: null,
+};
+
+const diskReadLedState = {
+  enabled: DISK_READ_LED_ENABLED,
+  active: false,
+  sysfsPin: null,
+  valuePath: null,
+  holdTimer: null,
   error: null,
 };
 
@@ -286,6 +302,50 @@ function setupMq2Monitoring() {
   console.log(`🧪 MQ-2 monitoring enabled (GPIO ${MQ2_GPIO_PIN}/sysfs ${mq2SysfsPin}) with buzzer GPIO ${BUZZER_GPIO_PIN}/sysfs ${buzzerSysfsPin}.`);
 }
 
+function setupDiskReadLed() {
+  if (!DISK_READ_LED_ENABLED) return;
+
+  const ledSysfsPin = resolveSysfsGpioNumber(DISK_READ_LED_PIN, DISK_READ_LED_SYSFS_PIN);
+  const ledPath = `/sys/class/gpio/gpio${ledSysfsPin}`;
+  const ledDirectionPath = path.join(ledPath, 'direction');
+  const ledValuePath = path.join(ledPath, 'value');
+
+  try {
+    if (!fs.existsSync(ledPath)) fs.writeFileSync('/sys/class/gpio/export', String(ledSysfsPin));
+    fs.writeFileSync(ledDirectionPath, 'out');
+    fs.writeFileSync(ledValuePath, DISK_READ_LED_ACTIVE_HIGH ? '0' : '1');
+    diskReadLedState.sysfsPin = ledSysfsPin;
+    diskReadLedState.valuePath = ledValuePath;
+  } catch (err) {
+    diskReadLedState.error = err.message;
+    console.error(`❌ Disk read LED setup failed (GPIO ${DISK_READ_LED_PIN}): ${err.message}`);
+    return;
+  }
+
+  console.log(`💡 Disk read LED enabled (GPIO ${DISK_READ_LED_PIN}/sysfs ${ledSysfsPin}).`);
+}
+
+function setDiskReadLed(on) {
+  if (!diskReadLedState.valuePath) return;
+  try {
+    fs.writeFileSync(
+      diskReadLedState.valuePath,
+      on ? (DISK_READ_LED_ACTIVE_HIGH ? '1' : '0') : (DISK_READ_LED_ACTIVE_HIGH ? '0' : '1'),
+    );
+    diskReadLedState.active = on;
+  } catch (err) {
+    diskReadLedState.error = err.message;
+    console.error(`❌ Failed to write disk read LED GPIO: ${err.message}`);
+  }
+}
+
+function pulseDiskReadLed() {
+  if (!DISK_READ_LED_ENABLED || !diskReadLedState.valuePath) return;
+  setDiskReadLed(true);
+  if (diskReadLedState.holdTimer) clearTimeout(diskReadLedState.holdTimer);
+  diskReadLedState.holdTimer = setTimeout(() => setDiskReadLed(false), DISK_READ_LED_HOLD_MS);
+}
+
 // ─── MIDDLEWARE ───────────────────────────────────────
 app.use(cors());
 app.use(express.json());
@@ -501,6 +561,7 @@ app.get('/api/download', requireAuthFlex, (req, res) => {
     // Range request support — essential for video/audio seeking
     const range = req.headers.range;
     if (range) {
+      pulseDiskReadLed();
       const [startStr, endStr] = range.replace(/bytes=/, '').split('-');
       const start = parseInt(startStr, 10);
       const end   = endStr ? parseInt(endStr, 10) : Math.min(start + 10 * 1024 * 1024, stat.size - 1);
@@ -511,6 +572,7 @@ app.get('/api/download', requireAuthFlex, (req, res) => {
       res.setHeader('Content-Length', chunkSize);
       fs.createReadStream(filePath, { start, end }).pipe(res);
     } else {
+      pulseDiskReadLed();
       res.setHeader('Content-Length', stat.size);
       fs.createReadStream(filePath).pipe(res);
     }
@@ -653,4 +715,5 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log('');
   setupMotionRecording();
   setupMq2Monitoring();
+  setupDiskReadLed();
 });

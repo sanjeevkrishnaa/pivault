@@ -200,6 +200,7 @@ MOTION_RECORD_SECONDS=5 \
 MQ2_ENABLED=1 \
 MQ2_GPIO_PIN=21 \
 BUZZER_GPIO_PIN=22 \
+DISK_READ_LED_PIN=18 \
 docker compose up -d --build
 ```
 
@@ -211,6 +212,7 @@ docker compose logs -f pivault
 Look for:
 - `🎯 Motion recording enabled ...`
 - `🧪 MQ-2 monitoring enabled ...`
+- `💡 Disk read LED enabled ...`
 - `📹 Motion detected. Recording started ...`
 - `✅ Motion recording saved ...`
 - `🚨 MQ-2 threshold crossed. Buzzer ON.`
@@ -225,6 +227,12 @@ Recordings will be at:
 - MQ-2 `VCC` per module requirements
 
 When MQ-2 crosses threshold (digital `D0` active), PiVault turns buzzer on and shows live MQ-2 status on the dashboard.
+
+### 4) Disk Read LED wiring
+- LED anode (+) → resistor (220Ω to 1kΩ) → GPIO18
+- LED cathode (-) → GND
+
+PiVault pulses this LED whenever file data is served from `/api/download` (including inline preview/range streaming), matching the "Disk Read" activity behavior.
 
 ---
 
